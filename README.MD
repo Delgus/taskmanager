@@ -6,32 +6,24 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDelgus%2Ftaskmanager.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FDelgus%2Ftaskmanager?ref=badge_shield)
 
 
-### TASK MANAGER (Решение тестовой задачи)
+### TASK MANAGER
 
-#### Задача:  
+This library implemented a system of task queues (library).
+TaskManager should resolve tasks, tasks can be of various types.
+Tasks can have different priority levels:
 
-Реализовать систему очередей задач (библиотекой).  
-Разруливать задачи должен TaskManager, задачи могут быть различных типов.  
-У задач могут быть различные уровни приоритетов:
+ - lowest
+ - low
+ - middle
+ - high
+ - highest
 
-- 1 - очень низкий
-- 2 - низкий
-- 3 - средний
-- 4 - высокий
-- 5 - очень высокий
+Tasks have events:
 
-У задач есть события:
-
-- Создание
-- Выполнение
-- Завершение
-- Ошибка выполнения
-
-На любое событие можно вешать от одного и более обработчиков, они должны выполняться по очередности FIFO.
-
-Наличие тестов обязательное, и документирование в стиле godoc плюсом. Использовать готовые решения и библиотеки 
-запрещено.
-
+ - BeforeExecEvent
+ - AfterExecEvent
+ - FailedEvent
 
 ## License
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDelgus%2Ftaskmanager.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2FDelgus%2Ftaskmanager?ref=badge_large)
+=======

@@ -8,25 +8,26 @@ import (
 	"github.com/delgus/taskmanager"
 )
 
+// Logger interface
 type Logger interface {
 	Error(interface{})
 }
 
-// Pool - пул воркеров для обработки задач
+// Pool of workers
 type Pool struct {
 	logger            Logger
 	queue             taskmanager.Queue
 	wg                sync.WaitGroup
-	maxWorkers        int                   // количество воркеров
-	periodicityTicker *time.Ticker          // частота с которой воркер пул проверяет есть ли задачи в очереди
-	closeTaskCh       chan struct{}         // канал для остановки пула воркеров
-	taskCh            chan taskmanager.Task // канал с поступающими задачами
-	quit              chan struct{}         // канал, после получения сигнала прекращает работу
+	maxWorkers        int                   // count of workers
+	periodicityTicker *time.Ticker          // period for check task in queue
+	closeTaskCh       chan struct{}         // channel for stopped getting of tasks
+	taskCh            chan taskmanager.Task // channel for tasks
+	quit              chan struct{}
 }
 
-// NewPool - конструктор для воркера задач
-// maxWorkers - количество воркеров в пуле
-// periodicity - частота с которой пул воркеров проверяет есть ли задачи в очереди
+// NewPool constructor for create Pool
+// maxWorkers - max count of workers
+// periodicity - period for check task in queue
 func NewPool(queue taskmanager.Queue, maxWorkers int, periodicity time.Duration) *Pool {
 	return &Pool{
 		queue:             queue,
@@ -38,9 +39,8 @@ func NewPool(queue taskmanager.Queue, maxWorkers int, periodicity time.Duration)
 	}
 }
 
-// Run - запуск воркера для работы
+// Run worker pool
 func (w *Pool) Run() {
-	// заполняем канал задачами с определенной периодичностью
 	go func() {
 		for {
 			select {
@@ -55,7 +55,6 @@ func (w *Pool) Run() {
 		}
 	}()
 
-	// запускаем пул воркеров
 	w.wg.Add(w.maxWorkers)
 	for i := 0; i < w.maxWorkers; i++ {
 		go w.work()
@@ -72,9 +71,8 @@ func (w *Pool) work() {
 	w.wg.Done()
 }
 
-// Shutdown - плавная остановка воркера
-// воркер не остановится пока не выполнит все недоработанные задачи
-// или не истечет тайм аут
+// Shutdown - the worker will not stop until he has completed all the unfinished tasks
+// or the timeout does not expire
 func (w *Pool) Shutdown(timeout time.Duration) error {
 	w.closeTaskCh <- struct{}{}
 

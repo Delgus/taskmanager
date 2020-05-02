@@ -6,20 +6,20 @@ import (
 	"github.com/delgus/taskmanager"
 )
 
-// Queue реализует очередь с прироритетом
+// Queue implement queue with priority
 type Queue struct {
 	queue queue
 	mu    sync.Mutex
 }
 
-// AddTask - добавление задач c блокировкой для безопасного добавления в асинхронных потоках
+// AddTask add task
 func (q *Queue) AddTask(task taskmanager.Task) {
 	q.mu.Lock()
 	q.queue.push(task)
 	q.mu.Unlock()
 }
 
-// GetTask - получение задачи из канала очереди с блокировкой для безопасного извлечения в асинхронных потоках
+// GetTask get task
 func (q *Queue) GetTask() taskmanager.Task {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -29,16 +29,13 @@ func (q *Queue) GetTask() taskmanager.Task {
 	return nil
 }
 
-// Слайс для хранения очереди задач
 type queue []taskmanager.Task
 
-// добавление нового элемента, просеиваем двоичную кучу вверх
 func (q *queue) push(t taskmanager.Task) {
 	*q = append(*q, t)
 	q.up()
 }
 
-// извлечение элемента с прросеиванием вниз
 func (q *queue) pop() taskmanager.Task {
 	q.swap(0, len(*q)-1)
 	q.down()
@@ -46,7 +43,7 @@ func (q *queue) pop() taskmanager.Task {
 	old := *q
 	n := len(old)
 	item := old[n-1]
-	old[n-1] = nil // избегаем утечки памяти
+	old[n-1] = nil
 	*q = old[0 : n-1]
 	return item
 }
@@ -59,11 +56,11 @@ func (q queue) swap(i, j int) {
 	q[i], q[j] = q[j], q[i]
 }
 
-// Восстановление пирамиды — операция up (реализация подсмотрена в container/heap)
+// up (see container/heap)
 func (q queue) up() {
-	j := len(q) - 1 // последний вставленный элемент
+	j := len(q) - 1
 	for {
-		i := (j - 1) / 2 // родительский элемент
+		i := (j - 1) / 2
 		if i == j || !q.less(j, i) {
 			break
 		}
@@ -72,7 +69,7 @@ func (q queue) up() {
 	}
 }
 
-// Восстановление пирамиды - операция down (реализация подсмотрена в container/heap)
+// down (see container/heap)
 func (q queue) down() {
 	n := len(q) - 1
 	var i int
@@ -93,17 +90,17 @@ func (q queue) down() {
 	}
 }
 
-// Task - стандартная реализации задачи
+// Task implement taskmanager.Task
 type Task struct {
 	events   map[taskmanager.Event][]taskmanager.EventHandler
 	priority taskmanager.Priority
 	handler  TaskHandler
 }
 
-// TaskHandler - тип для хэндлера с самой работой
+// TaskHandler type handle for task or job
 type TaskHandler func() error
 
-// NewTask - Конструктор для новой задачи
+// NewTask created new task
 func NewTask(priority taskmanager.Priority, handler TaskHandler) *Task {
 	task := &Task{
 		events:   make(map[taskmanager.Event][]taskmanager.EventHandler),
@@ -113,16 +110,16 @@ func NewTask(priority taskmanager.Priority, handler TaskHandler) *Task {
 	return task
 }
 
-// Priority  - возвращает приоритет задачи
+// Priority return priority of task
 func (t *Task) Priority() taskmanager.Priority {
 	return t.priority
 }
 
-// Exec - Выполняем задачу
-// При старте задачи вызываем событие BeforeExecEvent
-// Если задача выполнена неуспешно - вызываем событие FailedEvent
-// Если нужна более гибкая обработка ошибок - реализуем свой Task
-// По окончании задачи, если она прошла успешно вызываем событие AfterExecEvent
+// Exec - Perform the task
+// When the task starts emitting BeforeExecEvent
+// If the task is unsuccessful calling the FailedEvent
+// If you need more flexible error handling - implement your Task
+// At the end of the task, if it has passed successfully, call the AfterExecEvent event
 func (t *Task) Exec() error {
 	t.EmitEvent(taskmanager.BeforeExecEvent)
 	if err := t.handler(); err != nil {
@@ -133,12 +130,12 @@ func (t *Task) Exec() error {
 	return nil
 }
 
-// OnEvent - Функция, которая вешает обработчик на событие
+// OnEvent - added handler on event
 func (t *Task) OnEvent(event taskmanager.Event, handler taskmanager.EventHandler) {
 	t.events[event] = append(t.events[event], handler)
 }
 
-// EmitEvent вызывает событие, переданное в аргументах
+// EmitEvent emit event
 func (t *Task) EmitEvent(event taskmanager.Event) {
 	for _, h := range t.events[event] {
 		h()

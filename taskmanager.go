@@ -1,43 +1,40 @@
 package taskmanager
 
-type executor interface {
-	Exec() error
-}
-
-// Priority - тип для приоритетов
+// Priority - type for priority level
 type Priority int
 
 const (
-	// LowestPriority - самый низкий
+	// LowestPriority - lowest priority level
 	LowestPriority Priority = 1
-	// LowPriority - низкий
+	// LowPriority - low priority level
 	LowPriority Priority = 2
-	// MiddlePriority - средний
+	// MiddlePriority - middle priority level
 	MiddlePriority Priority = 3
-	// HighPriority - высокий
+	// HighPriority - high priority level
 	HighPriority Priority = 4
-	// HighestPriority - самый высокий
+	// HighestPriority - highest priority level
 	HighestPriority Priority = 5
 )
 
+type executor interface {
+	Exec() error
+}
 type prioritier interface {
 	Priority() Priority
 }
 
-// Event - тип для событий
+// Event - type for event name
 type Event string
 
-// EventHandler - тип для обработчика событий
+// EventHandler - handle for events
 type EventHandler func()
 
 const (
-	// CreatedEvent - создание
-	CreatedEvent Event = "created"
-	// BeforeExecEvent - начало выполнения
+	// BeforeExecEvent ...
 	BeforeExecEvent Event = "before_exec"
-	// AfterExecEvent - завершение выполнения
+	// AfterExecEvent ...
 	AfterExecEvent Event = "after_exec"
-	// FailedEvent - ошибка выполнения
+	// FailedEvent ...
 	FailedEvent Event = "failed"
 )
 
@@ -46,17 +43,17 @@ type eventer interface {
 	EmitEvent(event Event)
 }
 
-// Task - интерфейс, который должна реализовывать задача
+// Task interface
 type Task interface {
 	executor
 	prioritier
 	eventer
 }
 
-// Queue - интерфейс, который должна реализовывать очередь
+// Queue interface
 type Queue interface {
-	// AddTask - добавить задачу из очереди
+	// AddTask ...
 	AddTask(task Task)
-	// GetTask - получить задачу из очереди
+	// GetTask ...
 	GetTask() Task
 }

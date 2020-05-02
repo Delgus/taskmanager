@@ -9,14 +9,10 @@ import (
 
 func main() {
 	tq := new(memory.Queue)
-	//создаем задачи и добавляем в очередь
-	//lowest task
+
 	lTask := memory.NewTask(taskmanager.LowestPriority, func() error {
 		fmt.Println("i lowest! good work!")
 		return nil
-	})
-	lTask.OnEvent(taskmanager.CreatedEvent, func() {
-		fmt.Println("i lowest!i created!")
 	})
 	lTask.OnEvent(taskmanager.BeforeExecEvent, func() {
 		fmt.Println("i lowest! i before execution!")
@@ -24,16 +20,11 @@ func main() {
 	lTask.OnEvent(taskmanager.AfterExecEvent, func() {
 		fmt.Println("i lowest! i after execution!")
 	})
-	lTask.EmitEvent(taskmanager.CreatedEvent)
 	tq.AddTask(lTask)
 
-	//highest task
 	hTask := memory.NewTask(taskmanager.HighestPriority, func() error {
 		fmt.Println("i highest! good work!")
 		return nil
-	})
-	hTask.OnEvent(taskmanager.CreatedEvent, func() {
-		fmt.Println("i highest!i created!")
 	})
 	hTask.OnEvent(taskmanager.BeforeExecEvent, func() {
 		fmt.Println("i highest! i before execution!")
@@ -41,15 +32,11 @@ func main() {
 	hTask.OnEvent(taskmanager.AfterExecEvent, func() {
 		fmt.Println("i highest! i after execution!")
 	})
-	hTask.EmitEvent(taskmanager.CreatedEvent)
 	tq.AddTask(hTask)
 
 	mTask := memory.NewTask(taskmanager.MiddlePriority, func() error {
 		fmt.Println("i middle! good work!")
 		return nil
-	})
-	mTask.OnEvent(taskmanager.CreatedEvent, func() {
-		fmt.Println("i middle! i created!")
 	})
 	mTask.OnEvent(taskmanager.BeforeExecEvent, func() {
 		fmt.Println("i middle! i before execution!")
@@ -57,15 +44,10 @@ func main() {
 	mTask.OnEvent(taskmanager.AfterExecEvent, func() {
 		fmt.Println("i middle! i after execution!")
 	})
-	mTask.EmitEvent(taskmanager.CreatedEvent)
 	tq.AddTask(mTask)
 
-	//broken task
 	bTask := memory.NewTask(taskmanager.HighestPriority, func() error {
 		return fmt.Errorf("i broken! sorry(")
-	})
-	bTask.OnEvent(taskmanager.CreatedEvent, func() {
-		fmt.Println("i highest! i created!")
 	})
 	bTask.OnEvent(taskmanager.FailedEvent, func() {
 		fmt.Println("i broke! sorry")
@@ -76,7 +58,6 @@ func main() {
 	bTask.OnEvent(taskmanager.AfterExecEvent, func() {
 		fmt.Println("i highest! i after execution!")
 	})
-	bTask.EmitEvent(taskmanager.CreatedEvent)
 	tq.AddTask(bTask)
 
 	for {

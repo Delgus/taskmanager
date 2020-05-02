@@ -9,7 +9,6 @@ import (
 	"github.com/delgus/taskmanager"
 )
 
-// тест на выполнение задач по приоритету
 func TestPriority(t *testing.T) {
 	tasks := []*Task{
 		NewTask(taskmanager.HighestPriority, func() error { return nil }),
@@ -19,7 +18,7 @@ func TestPriority(t *testing.T) {
 		NewTask(taskmanager.LowestPriority, func() error { return nil }),
 	}
 
-	// перемешиваем задачи
+	// shuffle tasks
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(tasks), func(i, j int) { tasks[i], tasks[j] = tasks[j], tasks[i] })
 
@@ -59,8 +58,6 @@ func TestPriority(t *testing.T) {
 	}
 }
 
-// Если очередь пуста метод GetTask должен вернуть nil
-// Если в очереди одно задание GetTask должен вернуть именно это задание
 func TestGetTask(t *testing.T) {
 	q := new(Queue)
 	if q.GetTask() != nil {
@@ -74,7 +71,6 @@ func TestGetTask(t *testing.T) {
 	}
 }
 
-// сколько положили в очередь задач, столько и должны получить
 func TestCountTasks(t *testing.T) {
 	q := new(Queue)
 
@@ -88,7 +84,6 @@ func TestCountTasks(t *testing.T) {
 	}
 
 	for i := 0; i < tasksIn; i++ {
-		// перемешиваем примеры задач
 		rand.Seed(time.Now().UnixNano())
 		rand.Shuffle(len(tasks), func(i, j int) { tasks[i], tasks[j] = tasks[j], tasks[i] })
 
@@ -104,7 +99,6 @@ func TestCountTasks(t *testing.T) {
 	}
 }
 
-// В случае ошибки выполнения должен сработать хэндлер для события FailedEvent
 func TestErrorTask(t *testing.T) {
 	failFlag := false
 
@@ -123,7 +117,6 @@ func TestErrorTask(t *testing.T) {
 	}
 }
 
-// Обращаемся асинхронно к незащищенным данным чтобы создать условия для race condition
 func TestRaceCondition(t *testing.T) {
 	q := new(Queue)
 	go func() {
@@ -136,17 +129,17 @@ func TestOnEvent(t *testing.T) {
 	ed := NewTask(taskmanager.HighestPriority, func() error { return nil })
 
 	eventFlag := false
-	ed.OnEvent(taskmanager.CreatedEvent, func() {
+	ed.OnEvent(taskmanager.BeforeExecEvent, func() {
 		eventFlag = true
 	})
 
-	ed.EmitEvent(taskmanager.BeforeExecEvent)
+	ed.EmitEvent(taskmanager.AfterExecEvent)
 
 	if eventFlag {
 		t.Errorf(`unexpected execution of handler`)
 	}
 
-	ed.EmitEvent(taskmanager.CreatedEvent)
+	ed.EmitEvent(taskmanager.BeforeExecEvent)
 
 	if !eventFlag {
 		t.Errorf(`handler not execute`)

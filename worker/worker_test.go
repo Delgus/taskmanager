@@ -9,18 +9,14 @@ import (
 	"github.com/delgus/taskmanager/memory"
 )
 
-// воркер должен получить все задачи из очереди и вызвать у них обработчик
 func TestWorkerPool(t *testing.T) {
-	// новая очередь задач
 	q := new(memory.Queue)
 
 	var workCounter int64
 
-	var countTasks = 5 // количество задач
+	var countTasks = 5
 
 	testTask := memory.NewTask(taskmanager.HighestPriority, func() error {
-		// добавляем атомарно в счетчик выполненую работу
-		// чтобы избежать data race condition
 		atomic.AddInt64(&workCounter, 1)
 		time.Sleep(time.Second * 2)
 		return nil
@@ -34,20 +30,19 @@ func TestWorkerPool(t *testing.T) {
 
 	go worker.Run()
 
-	// ждем пока пул воркеров получит все задачи и останавливаем
+	// wait pool
 	time.Sleep(time.Second * 1)
-	// таймаут устанавливаем 3 секунды, что больше чем любая из задач
+
 	if err := worker.Shutdown(time.Second * 3); err != nil {
 		t.Error(err)
 	}
 
 	if workCounter != int64(countTasks) {
-		t.Error(`не все задачи выполнились`)
+		t.Error(`not all tasks completed`)
 	}
 }
 
 func TestWorkerPool_Shutdown(t *testing.T) {
-	// новая очередь задач
 	q := new(memory.Queue)
 
 	testTask := memory.NewTask(taskmanager.HighestPriority, func() error {
