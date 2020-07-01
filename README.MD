@@ -23,7 +23,18 @@ Tasks have events:
  - BeforeExecEvent
  - AfterExecEvent
  - FailedEvent
+ 
+### Examples in playground
 
-## License
+simple queue  
+[https://play.golang.org/p/6kcB9-jw-wU](https://play.golang.org/p/6kcB9-jw-wU)
+
+worker
+[https://play.golang.org/p/nXiMzS8mOe4](https://play.golang.org/p/nXiMzS8mOe4)
+
+
+
+### License  
+
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDelgus%2Ftaskmanager.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2FDelgus%2Ftaskmanager?ref=badge_large)
 =======
