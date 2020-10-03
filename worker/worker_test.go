@@ -6,17 +6,17 @@ import (
 	"time"
 
 	"github.com/delgus/taskmanager"
-	"github.com/delgus/taskmanager/memory"
+	"github.com/delgus/taskmanager/memheap"
 )
 
 func TestWorkerPool(t *testing.T) {
-	q := new(memory.Queue)
+	q := new(memheap.Queue)
 
 	var workCounter int64
 
 	var countTasks = 5
 
-	testTask := memory.NewTask(taskmanager.HighestPriority, func() error {
+	testTask := taskmanager.NewTask(taskmanager.HighestPriority, func() error {
 		atomic.AddInt64(&workCounter, 1)
 		time.Sleep(time.Second * 2)
 		return nil
@@ -43,9 +43,9 @@ func TestWorkerPool(t *testing.T) {
 }
 
 func TestWorkerPool_Shutdown(t *testing.T) {
-	q := new(memory.Queue)
+	q := new(memheap.Queue)
 
-	testTask := memory.NewTask(taskmanager.HighestPriority, func() error {
+	testTask := taskmanager.NewTask(taskmanager.HighestPriority, func() error {
 		time.Sleep(time.Second * 10)
 		return nil
 	})

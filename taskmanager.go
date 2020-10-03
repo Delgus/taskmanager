@@ -44,7 +44,7 @@ type eventer interface {
 }
 
 // Task interface
-type Task interface {
+type TaskInterface interface {
 	executor
 	prioritier
 	eventer
@@ -53,7 +53,7 @@ type Task interface {
 // Queue interface
 type Queue interface {
 	// AddTask ...
-	AddTask(task Task)
+	AddTask(task TaskInterface)
 	// GetTask ...
-	GetTask() Task
+	GetTask() TaskInterface
 }

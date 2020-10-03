@@ -1,7 +1,6 @@
-package memory
+package memheap
 
 import (
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -10,12 +9,12 @@ import (
 )
 
 func TestPriority(t *testing.T) {
-	tasks := []*Task{
-		NewTask(taskmanager.HighestPriority, func() error { return nil }),
-		NewTask(taskmanager.HighPriority, func() error { return nil }),
-		NewTask(taskmanager.MiddlePriority, func() error { return nil }),
-		NewTask(taskmanager.LowPriority, func() error { return nil }),
-		NewTask(taskmanager.LowestPriority, func() error { return nil }),
+	tasks := []*taskmanager.Task{
+		taskmanager.NewTask(taskmanager.HighestPriority, func() error { return nil }),
+		taskmanager.NewTask(taskmanager.HighPriority, func() error { return nil }),
+		taskmanager.NewTask(taskmanager.MiddlePriority, func() error { return nil }),
+		taskmanager.NewTask(taskmanager.LowPriority, func() error { return nil }),
+		taskmanager.NewTask(taskmanager.LowestPriority, func() error { return nil }),
 	}
 
 	// shuffle tasks
@@ -63,7 +62,7 @@ func TestGetTask(t *testing.T) {
 	if q.GetTask() != nil {
 		t.Error(`unexpected TaskInterface, expect nil`)
 	}
-	testTask := NewTask(taskmanager.HighestPriority, func() error { return nil })
+	testTask := taskmanager.NewTask(taskmanager.HighestPriority, func() error { return nil })
 	q.AddTask(testTask)
 	taskFromQueue := q.GetTask()
 	if testTask != taskFromQueue {
@@ -75,12 +74,12 @@ func TestCountTasks(t *testing.T) {
 	q := new(Queue)
 
 	tasksIn := 64
-	tasks := []*Task{
-		NewTask(taskmanager.HighestPriority, func() error { return nil }),
-		NewTask(taskmanager.HighPriority, func() error { return nil }),
-		NewTask(taskmanager.MiddlePriority, func() error { return nil }),
-		NewTask(taskmanager.LowPriority, func() error { return nil }),
-		NewTask(taskmanager.LowestPriority, func() error { return nil }),
+	tasks := []*taskmanager.Task{
+		taskmanager.NewTask(taskmanager.HighestPriority, func() error { return nil }),
+		taskmanager.NewTask(taskmanager.HighPriority, func() error { return nil }),
+		taskmanager.NewTask(taskmanager.MiddlePriority, func() error { return nil }),
+		taskmanager.NewTask(taskmanager.LowPriority, func() error { return nil }),
+		taskmanager.NewTask(taskmanager.LowestPriority, func() error { return nil }),
 	}
 
 	for i := 0; i < tasksIn; i++ {
@@ -99,49 +98,10 @@ func TestCountTasks(t *testing.T) {
 	}
 }
 
-func TestErrorTask(t *testing.T) {
-	failFlag := false
-
-	task := NewTask(taskmanager.HighestPriority, func() error { return fmt.Errorf(`test error`) })
-	task.OnEvent(taskmanager.FailedEvent, func() {
-		failFlag = true
-	})
-	err := task.Exec()
-
-	if err == nil {
-		t.Errorf(`expected error!`)
-	}
-
-	if !failFlag {
-		t.Errorf(`expected execution of handler for failed event!`)
-	}
-}
-
 func TestRaceCondition(t *testing.T) {
 	q := new(Queue)
 	go func() {
-		q.AddTask(NewTask(taskmanager.HighestPriority, func() error { return nil }))
+		q.AddTask(taskmanager.NewTask(taskmanager.HighestPriority, func() error { return nil }))
 	}()
 	q.GetTask()
-}
-
-func TestOnEvent(t *testing.T) {
-	ed := NewTask(taskmanager.HighestPriority, func() error { return nil })
-
-	eventFlag := false
-	ed.OnEvent(taskmanager.BeforeExecEvent, func() {
-		eventFlag = true
-	})
-
-	ed.EmitEvent(taskmanager.AfterExecEvent)
-
-	if eventFlag {
-		t.Errorf(`unexpected execution of handler`)
-	}
-
-	ed.EmitEvent(taskmanager.BeforeExecEvent)
-
-	if !eventFlag {
-		t.Errorf(`handler not execute`)
-	}
 }

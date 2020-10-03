@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/delgus/taskmanager"
-	"github.com/delgus/taskmanager/memory"
+	"github.com/delgus/taskmanager/memheap"
 	"github.com/delgus/taskmanager/worker"
 )
 
 func main() {
-	q := new(memory.Queue)
+	q := new(memheap.Queue)
 	// async adding tasks
 	stopAddTasks := make(chan struct{})
 	go func() {
@@ -20,7 +20,7 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				task := memory.NewTask(taskmanager.HighestPriority, func() error {
+				task := taskmanager.NewTask(taskmanager.HighestPriority, func() error {
 					time.Sleep(time.Second * 5)
 					fmt.Println("i highest! good work!")
 					return nil
@@ -39,7 +39,7 @@ func main() {
 	}()
 
 	// process tasks in 10 goroutine
-	worker := worker.NewPool(q, 10, time.Millisecond*50)
+	workerPool := worker.NewPool(q, 10, time.Millisecond*50)
 
 	// press CTRL + C to stop the worker
 	go func() {
@@ -47,12 +47,11 @@ func main() {
 		signal.Notify(sigint, os.Interrupt)
 		<-sigint
 		stopAddTasks <- struct{}{}
-		if err := worker.Shutdown(time.Second * 5); err != nil {
+		if err := workerPool.Shutdown(time.Second * 5); err != nil {
 			fmt.Println(`error by stopping:` + err.Error())
 		}
 		fmt.Println(`stopping worker pool`)
 	}()
 
-	worker.Run()
-
+	workerPool.Run()
 }

@@ -4,13 +4,13 @@ import (
 	"fmt"
 
 	"github.com/delgus/taskmanager"
-	"github.com/delgus/taskmanager/memory"
+	"github.com/delgus/taskmanager/memheap"
 )
 
 func main() {
-	tq := new(memory.Queue)
+	tq := new(memheap.Queue)
 
-	lTask := memory.NewTask(taskmanager.LowestPriority, func() error {
+	lTask := taskmanager.NewTask(taskmanager.LowestPriority, func() error {
 		fmt.Println("i lowest! good work!")
 		return nil
 	})
@@ -22,7 +22,7 @@ func main() {
 	})
 	tq.AddTask(lTask)
 
-	hTask := memory.NewTask(taskmanager.HighestPriority, func() error {
+	hTask := taskmanager.NewTask(taskmanager.HighestPriority, func() error {
 		fmt.Println("i highest! good work!")
 		return nil
 	})
@@ -34,7 +34,7 @@ func main() {
 	})
 	tq.AddTask(hTask)
 
-	mTask := memory.NewTask(taskmanager.MiddlePriority, func() error {
+	mTask := taskmanager.NewTask(taskmanager.MiddlePriority, func() error {
 		fmt.Println("i middle! good work!")
 		return nil
 	})
@@ -46,7 +46,7 @@ func main() {
 	})
 	tq.AddTask(mTask)
 
-	bTask := memory.NewTask(taskmanager.HighestPriority, func() error {
+	bTask := taskmanager.NewTask(taskmanager.HighestPriority, func() error {
 		return fmt.Errorf("i broken! sorry(")
 	})
 	bTask.OnEvent(taskmanager.FailedEvent, func() {

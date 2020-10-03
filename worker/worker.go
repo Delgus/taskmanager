@@ -18,10 +18,10 @@ type Pool struct {
 	logger            Logger
 	queue             taskmanager.Queue
 	wg                sync.WaitGroup
-	maxWorkers        int                   // count of workers
-	periodicityTicker *time.Ticker          // period for check task in queue
-	closeTaskCh       chan struct{}         // channel for stopped getting of tasks
-	taskCh            chan taskmanager.Task // channel for tasks
+	maxWorkers        int                            // count of workers
+	periodicityTicker *time.Ticker                   // period for check task in queue
+	closeTaskCh       chan struct{}                  // channel for stopped getting of tasks
+	taskCh            chan taskmanager.TaskInterface // channel for tasks
 	quit              chan struct{}
 }
 
@@ -34,7 +34,7 @@ func NewPool(queue taskmanager.Queue, maxWorkers int, periodicity time.Duration)
 		maxWorkers:        maxWorkers,
 		periodicityTicker: time.NewTicker(periodicity),
 		closeTaskCh:       make(chan struct{}),
-		taskCh:            make(chan taskmanager.Task),
+		taskCh:            make(chan taskmanager.TaskInterface),
 		quit:              make(chan struct{}),
 	}
 }
