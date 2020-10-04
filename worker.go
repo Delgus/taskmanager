@@ -8,7 +8,7 @@ import (
 
 // Logger interface
 type Logger interface {
-	Error(interface{})
+	Error(...interface{})
 }
 
 // WorkerPool of workers
@@ -26,8 +26,9 @@ type WorkerPool struct {
 // NewWorkerPool constructor for create WorkerPool
 // maxWorkers - max count of workers
 // periodicity - period for check task in queue
-func NewWorkerPool(queue QueueInterface, maxWorkers int, periodicity time.Duration) *WorkerPool {
+func NewWorkerPool(queue QueueInterface, maxWorkers int, periodicity time.Duration, logger Logger) *WorkerPool {
 	return &WorkerPool{
+		logger:            logger,
 		queue:             queue,
 		maxWorkers:        maxWorkers,
 		periodicityTicker: time.NewTicker(periodicity),
@@ -48,7 +49,7 @@ func (w *WorkerPool) Run() {
 			case <-w.periodicityTicker.C:
 				task, err := w.queue.GetTask()
 				if err != nil {
-					w.logger.Error(fmt.Errorf(`can not get task from queue: %s`, err.Error()))
+					w.logger.Error(fmt.Errorf(`can not get task from queue: %w`, err))
 				}
 				if task != nil {
 					w.taskCh <- task

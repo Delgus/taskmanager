@@ -61,7 +61,7 @@ queue.GetTask()
 
 #### worker pool
 ```go
-workerPool := taskmanager.NewWorkerPool(queue, 10, time.Millisecond*50)
+workerPool := taskmanager.NewWorkerPool(queue, 10, time.Millisecond*50, logger)
 ```
 
 ### Examples in playground

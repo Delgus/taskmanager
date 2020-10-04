@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/delgus/taskmanager"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -37,7 +38,7 @@ func main() {
 	}()
 
 	// process tasks in 10 goroutine
-	workerPool := taskmanager.NewWorkerPool(q, 10, time.Millisecond*50)
+	workerPool := taskmanager.NewWorkerPool(q, 10, time.Millisecond*50, logrus.New())
 
 	// press CTRL + C to stop the worker
 	go func() {
