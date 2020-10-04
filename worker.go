@@ -1,11 +1,9 @@
-package worker
+package taskmanager
 
 import (
 	"fmt"
 	"sync"
 	"time"
-
-	"github.com/delgus/taskmanager"
 )
 
 // Logger interface
@@ -13,34 +11,34 @@ type Logger interface {
 	Error(interface{})
 }
 
-// Pool of workers
-type Pool struct {
+// WorkerPool of workers
+type WorkerPool struct {
 	logger            Logger
-	queue             taskmanager.Queue
+	queue             QueueInterface
 	wg                sync.WaitGroup
-	maxWorkers        int                            // count of workers
-	periodicityTicker *time.Ticker                   // period for check task in queue
-	closeTaskCh       chan struct{}                  // channel for stopped getting of tasks
-	taskCh            chan taskmanager.TaskInterface // channel for tasks
+	maxWorkers        int                // count of workers
+	periodicityTicker *time.Ticker       // period for check task in queue
+	closeTaskCh       chan struct{}      // channel for stopped getting of tasks
+	taskCh            chan TaskInterface // channel for tasks
 	quit              chan struct{}
 }
 
-// NewPool constructor for create Pool
+// NewWorkerPool constructor for create WorkerPool
 // maxWorkers - max count of workers
 // periodicity - period for check task in queue
-func NewPool(queue taskmanager.Queue, maxWorkers int, periodicity time.Duration) *Pool {
-	return &Pool{
+func NewWorkerPool(queue QueueInterface, maxWorkers int, periodicity time.Duration) *WorkerPool {
+	return &WorkerPool{
 		queue:             queue,
 		maxWorkers:        maxWorkers,
 		periodicityTicker: time.NewTicker(periodicity),
 		closeTaskCh:       make(chan struct{}),
-		taskCh:            make(chan taskmanager.TaskInterface),
+		taskCh:            make(chan TaskInterface),
 		quit:              make(chan struct{}),
 	}
 }
 
 // Run worker pool
-func (w *Pool) Run() {
+func (w *WorkerPool) Run() {
 	go func() {
 		for {
 			select {
@@ -48,7 +46,11 @@ func (w *Pool) Run() {
 				close(w.taskCh)
 				return
 			case <-w.periodicityTicker.C:
-				if task := w.queue.GetTask(); task != nil {
+				task, err := w.queue.GetTask()
+				if err != nil {
+					w.logger.Error(fmt.Errorf(`can not get task from queue: %s`, err.Error()))
+				}
+				if task != nil {
 					w.taskCh <- task
 				}
 			}
@@ -62,7 +64,7 @@ func (w *Pool) Run() {
 	<-w.quit
 }
 
-func (w *Pool) work() {
+func (w *WorkerPool) work() {
 	for task := range w.taskCh {
 		if err := task.Exec(); err != nil {
 			w.logger.Error(err)
@@ -73,7 +75,7 @@ func (w *Pool) work() {
 
 // Shutdown - the worker will not stop until he has completed all the unfinished tasks
 // or the timeout does not expire
-func (w *Pool) Shutdown(timeout time.Duration) error {
+func (w *WorkerPool) Shutdown(timeout time.Duration) error {
 	w.closeTaskCh <- struct{}{}
 
 	ok := make(chan struct{})

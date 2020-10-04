@@ -1,32 +1,31 @@
-package worker
+package taskmanager
 
 import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/delgus/taskmanager"
-	"github.com/delgus/taskmanager/memheap"
 )
 
 func TestWorkerPool(t *testing.T) {
-	q := new(memheap.Queue)
+	q := new(HeapQueue)
 
 	var workCounter int64
 
 	var countTasks = 5
 
-	testTask := taskmanager.NewTask(taskmanager.HighestPriority, func() error {
+	testTask := NewTask(HighestPriority, func() error {
 		atomic.AddInt64(&workCounter, 1)
 		time.Sleep(time.Second * 2)
 		return nil
 	})
 
 	for i := 0; i < countTasks; i++ {
-		q.AddTask(testTask)
+		if err := q.AddTask(testTask); err != nil {
+			t.Errorf(`unexpected error: %s`, err.Error())
+		}
 	}
 
-	worker := NewPool(q, 10, time.Millisecond)
+	worker := NewWorkerPool(q, 10, time.Millisecond)
 
 	go worker.Run()
 
@@ -43,14 +42,16 @@ func TestWorkerPool(t *testing.T) {
 }
 
 func TestWorkerPool_Shutdown(t *testing.T) {
-	q := new(memheap.Queue)
+	q := new(HeapQueue)
 
-	testTask := taskmanager.NewTask(taskmanager.HighestPriority, func() error {
+	testTask := NewTask(HighestPriority, func() error {
 		time.Sleep(time.Second * 10)
 		return nil
 	})
-	q.AddTask(testTask)
-	workerPool := NewPool(q, 2, time.Millisecond)
+	if err := q.AddTask(testTask); err != nil {
+		t.Errorf(`unexpected error: %s`, err.Error())
+	}
+	workerPool := NewWorkerPool(q, 2, time.Millisecond)
 	go workerPool.Run()
 	time.Sleep(time.Second)
 	if err := workerPool.Shutdown(time.Second); err == nil {

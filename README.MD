@@ -24,6 +24,46 @@ Tasks have events:
  - AfterExecEvent
  - FailedEvent
  
+#### Create task with priority
+
+```go
+job := func() error {
+	fmt.Println("doing work!")
+	return nil
+}
+task := taskmanager.NewTask(taskmanager.HighestPriority, job)
+```
+
+#### add events to tasks
+```go
+task.OnEvent(taskmanager.BeforeExecEvent, func() {
+	fmt.Println("i before execution!")
+})
+```
+
+#### Create queue
+```go
+// queue in memory with heap
+queue1 := new(taskmanager.HeapQueue)
+// queue in memory with slice of channels
+queue2 := NewSliceQueue(100)
+```
+
+#### add task to queue
+```go
+queue.AddTask(task)
+```
+
+#### get task from queue
+```go
+queue.GetTask()
+```
+
+#### worker pool
+```go
+workerPool := taskmanager.NewWorkerPool(queue, 10, time.Millisecond*50)
+```
+
 ### Examples in playground
 
 simple queue    

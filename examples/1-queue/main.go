@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/delgus/taskmanager"
-	"github.com/delgus/taskmanager/memheap"
 )
 
 func main() {
-	tq := new(memheap.Queue)
+	tq := new(taskmanager.HeapQueue)
 
 	lTask := taskmanager.NewTask(taskmanager.LowestPriority, func() error {
 		fmt.Println("i lowest! good work!")
@@ -61,7 +60,7 @@ func main() {
 	tq.AddTask(bTask)
 
 	for {
-		task := tq.GetTask()
+		task, _ := tq.GetTask()
 		if task == nil {
 			break
 		}

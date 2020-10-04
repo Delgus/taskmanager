@@ -1,42 +1,41 @@
-package memheap
+package taskmanager
 
 import (
 	"sync"
-
-	"github.com/delgus/taskmanager"
 )
 
-// Queue implement queue with priority
-type Queue struct {
+// HeapQueue implement queue with priority
+type HeapQueue struct {
 	queue queue
 	mu    sync.Mutex
 }
 
 // AddTask add task
-func (q *Queue) AddTask(task taskmanager.TaskInterface) {
+func (q *HeapQueue) AddTask(task TaskInterface) error {
 	q.mu.Lock()
 	q.queue.push(task)
 	q.mu.Unlock()
-}
-
-// GetTask get task
-func (q *Queue) GetTask() taskmanager.TaskInterface {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	if len(q.queue) > 0 {
-		return q.queue.pop()
-	}
 	return nil
 }
 
-type queue []taskmanager.TaskInterface
+// GetTask get task
+func (q *HeapQueue) GetTask() (task TaskInterface, err error) {
+	q.mu.Lock()
+	if len(q.queue) > 0 {
+		task = q.queue.pop()
+	}
+	q.mu.Unlock()
+	return
+}
 
-func (q *queue) push(t taskmanager.TaskInterface) {
+type queue []TaskInterface
+
+func (q *queue) push(t TaskInterface) {
 	*q = append(*q, t)
 	q.up()
 }
 
-func (q *queue) pop() taskmanager.TaskInterface {
+func (q *queue) pop() TaskInterface {
 	q.swap(0, len(*q)-1)
 	q.down()
 
@@ -49,7 +48,7 @@ func (q *queue) pop() taskmanager.TaskInterface {
 }
 
 func (q queue) less(i, j int) bool {
-	return q[i].Priority() > q[j].Priority()
+	return q[i].Priority() < q[j].Priority()
 }
 
 func (q queue) swap(i, j int) {

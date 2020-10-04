@@ -4,16 +4,16 @@ package taskmanager
 type Priority int
 
 const (
-	// LowestPriority - lowest priority level
-	LowestPriority Priority = 1
-	// LowPriority - low priority level
-	LowPriority Priority = 2
-	// MiddlePriority - middle priority level
-	MiddlePriority Priority = 3
-	// HighPriority - high priority level
-	HighPriority Priority = 4
 	// HighestPriority - highest priority level
-	HighestPriority Priority = 5
+	HighestPriority Priority = 0
+	// HighPriority - high priority level
+	HighPriority Priority = 1
+	// MiddlePriority - middle priority level
+	MiddlePriority Priority = 2
+	// LowPriority - low priority level
+	LowPriority Priority = 3
+	// LowestPriority - lowest priority level
+	LowestPriority Priority = 4
 )
 
 type executor interface {
@@ -51,9 +51,9 @@ type TaskInterface interface {
 }
 
 // Queue interface
-type Queue interface {
+type QueueInterface interface {
 	// AddTask ...
-	AddTask(task TaskInterface)
+	AddTask(task TaskInterface) error
 	// GetTask ...
-	GetTask() TaskInterface
+	GetTask() (TaskInterface, error)
 }

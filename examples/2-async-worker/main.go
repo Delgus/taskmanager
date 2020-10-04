@@ -7,12 +7,10 @@ import (
 	"time"
 
 	"github.com/delgus/taskmanager"
-	"github.com/delgus/taskmanager/memheap"
-	"github.com/delgus/taskmanager/worker"
 )
 
 func main() {
-	q := new(memheap.Queue)
+	q := new(taskmanager.HeapQueue)
 	// async adding tasks
 	stopAddTasks := make(chan struct{})
 	go func() {
@@ -39,7 +37,7 @@ func main() {
 	}()
 
 	// process tasks in 10 goroutine
-	workerPool := worker.NewPool(q, 10, time.Millisecond*50)
+	workerPool := taskmanager.NewWorkerPool(q, 10, time.Millisecond*50)
 
 	// press CTRL + C to stop the worker
 	go func() {
