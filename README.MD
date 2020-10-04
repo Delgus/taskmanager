@@ -64,14 +64,6 @@ queue.GetTask()
 workerPool := taskmanager.NewWorkerPool(queue, 10, time.Millisecond*50, logger)
 ```
 
-### Examples in playground
-
-simple queue    
-[https://play.golang.org/p/6kcB9-jw-wU](https://play.golang.org/p/6kcB9-jw-wU)
-
-worker   
-[https://play.golang.org/p/nXiMzS8mOe4](https://play.golang.org/p/nXiMzS8mOe4)
-
 
 
 ### License  
