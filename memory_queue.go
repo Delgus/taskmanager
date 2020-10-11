@@ -13,25 +13,21 @@ func newStorage() *storage {
 	}
 }
 
-func (s *storage) len() int {
+func (s *storage) push(item TaskInterface) {
 	s.Lock()
-	defer s.Unlock()
-	return len(s.items)
-}
-
-func (s *storage) append(item TaskInterface) {
-	s.Lock()
-	defer s.Unlock()
-
 	s.items = append(s.items, item)
+	s.Unlock()
 }
 
-func (s *storage) first() TaskInterface {
+func (s *storage) pop() TaskInterface {
 	s.Lock()
 	defer s.Unlock()
-	item := s.items[0]
-	s.items = s.items[1:]
-	return item
+	if len(s.items) > 0 {
+		item := s.items[0]
+		s.items = s.items[1:]
+		return item
+	}
+	return nil
 }
 
 // MemoryQueue implement queue with priority
@@ -52,17 +48,17 @@ func NewMemoryQueue() *MemoryQueue {
 }
 
 // AddTask add task
-func (mq *MemoryQueue) AddTask(task TaskInterface) error {
-	mq.store[task.Priority()].append(task)
-	return nil
+func (mq *MemoryQueue) AddTask(task TaskInterface) {
+	mq.store[task.Priority()].push(task)
 }
 
 // GetTask get task
-func (mq *MemoryQueue) GetTask() (task TaskInterface, err error) {
+func (mq *MemoryQueue) GetTask() (task TaskInterface) {
 	for _, t := range mq.store {
-		if t.len() > 0 {
-			return t.first(), nil
+		task := t.pop()
+		if task != nil {
+			return task
 		}
 	}
-	return nil, nil
+	return nil
 }

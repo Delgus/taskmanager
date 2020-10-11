@@ -3,43 +3,33 @@ package taskmanager
 import (
 	"errors"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 )
 
-type fakeLogger struct {
-	buffer interface{}
-	sync.Mutex
+// logger mock
+type fakeLogger struct{ err chan error }
+
+func newFakeLogger() *fakeLogger {
+	return &fakeLogger{
+		err: make(chan error, 100),
+	}
 }
 
 func (f *fakeLogger) Error(info ...interface{}) {
-	f.Lock()
-	f.buffer = info[0]
-	f.Unlock()
+	for _, i := range info {
+		if v, ok := i.(error); ok {
+			f.err <- v
+		}
+	}
 }
 
-func (f *fakeLogger) getBuffer() interface{} {
-	f.Lock()
-	defer f.Unlock()
-	return f.buffer
-}
-
-type brokenQueue struct {
-	err error
-}
-
-func (b *brokenQueue) AddTask(task TaskInterface) error {
+func (f *fakeLogger) getError() error {
+	if len(f.err) > 0 {
+		return <-f.err
+	}
 	return nil
-}
-
-func (b *brokenQueue) GetTask() (TaskInterface, error) {
-	return nil, b.err
-}
-
-func (b *brokenQueue) addError(err error) {
-	b.err = err
 }
 
 func TestWorkerPool(t *testing.T) {
@@ -49,26 +39,24 @@ func TestWorkerPool(t *testing.T) {
 
 	var calcTask = func() error {
 		atomic.AddInt64(&workCounter, 1)
-		time.Sleep(time.Second * 2)
+		time.Sleep(time.Second)
 		return nil
 	}
-	var countTasks = 5
+	var countTasks = 10 // == default count workers
 
 	for i := 0; i < countTasks; i++ {
-		if err := q.AddTask(NewTask(HighestPriority, calcTask)); err != nil {
-			t.Errorf(`unexpected error: %s`, err.Error())
-		}
+		q.AddTask(NewTask(HighestPriority, calcTask))
 	}
 
-	worker := NewWorkerPool(q, 10, time.Millisecond, new(fakeLogger))
+	worker := NewWorkerPool(q, newFakeLogger())
 
 	go worker.Run()
 
-	// wait pool
-	time.Sleep(time.Second * 1)
+	// wait when workers got all tasks
+	time.Sleep(time.Millisecond * 300)
 
-	if err := worker.Shutdown(time.Second * 3); err != nil {
-		t.Error(err)
+	if err := worker.Shutdown(time.Second); err != nil {
+		t.Errorf(`unexpected error - %v`, err)
 	}
 
 	if workCounter != int64(countTasks) {
@@ -80,15 +68,14 @@ func TestWorkerPool_Shutdown(t *testing.T) {
 	q := NewMemoryQueue()
 
 	testTask := NewTask(HighestPriority, func() error {
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 2)
 		return nil
 	})
-	if err := q.AddTask(testTask); err != nil {
-		t.Errorf(`unexpected error: %s`, err.Error())
-	}
-	workerPool := NewWorkerPool(q, 2, time.Millisecond, new(fakeLogger))
+	q.AddTask(testTask)
+	workerPool := NewWorkerPool(q, newFakeLogger())
 	go workerPool.Run()
-	time.Sleep(time.Second)
+	// wait when workers got all tasks
+	time.Sleep(time.Millisecond * 300)
 	if err := workerPool.Shutdown(time.Second); err == nil {
 		t.Error(`expected timeout error`)
 	}
@@ -101,42 +88,19 @@ func TestWorkerLogTaskError(t *testing.T) {
 	testTask := NewTask(HighestPriority, func() error {
 		return oops
 	})
-	if err := q.AddTask(testTask); err != nil {
-		t.Errorf(`unexpected error: %s`, err.Error())
-	}
-	fakeLogger := new(fakeLogger)
-	workerPool := NewWorkerPool(q, 2, time.Millisecond, fakeLogger)
+	q.AddTask(testTask)
+	fakeLogger := newFakeLogger()
+	workerPool := NewWorkerPool(q, fakeLogger)
 	go workerPool.Run()
-	time.Sleep(time.Second)
-	if err := workerPool.Shutdown(time.Second); err != nil {
-		t.Error(`unexpected timeout error`)
-	}
-	if errFromLogger, ok := fakeLogger.getBuffer().(error); ok {
-		if !errors.Is(errFromLogger, oops) {
-			t.Errorf(`expected logger text: %v got %v`, fakeLogger.buffer, oops)
-		}
-	} else {
-		t.Errorf(`expected error. got %v`, fakeLogger.buffer)
-	}
-}
 
-func TestWorkerLogErrorByGetTask(t *testing.T) {
-	q := new(brokenQueue)
-	oops := fmt.Errorf("oops-oops")
-	q.addError(oops)
-	fakeLogger := new(fakeLogger)
-	workerPool := NewWorkerPool(q, 2, time.Millisecond, fakeLogger)
-	go workerPool.Run()
-	time.Sleep(time.Second)
-	if err := workerPool.Shutdown(time.Second); err != nil {
+	// wait when workers got all tasks
+	time.Sleep(time.Millisecond * 300)
+
+	if err := workerPool.Shutdown(time.Millisecond * 200); err != nil {
 		t.Error(`unexpected timeout error`)
 	}
-	if errFromLogger, ok := fakeLogger.getBuffer().(error); ok {
-		if !errors.Is(errFromLogger, oops) {
-			t.Errorf(`expected logger text: %v got %v`, fakeLogger.buffer, oops)
-		}
-	} else {
-		t.Errorf(`expected error. got %v`, fakeLogger.buffer)
+	if err := fakeLogger.getError(); !errors.Is(err, oops) {
+		t.Errorf(`expected error: %v got: %v`, oops, err)
 	}
 }
 
@@ -157,16 +121,14 @@ func TestTask_Attempts(t *testing.T) {
 	})
 	task2.SetAttempts(attempts)
 
-	if err := q.AddTask(task1); err != nil {
-		t.Errorf(`unexpected error: %s`, err.Error())
-	}
-	if err := q.AddTask(task2); err != nil {
-		t.Errorf(`unexpected error: %s`, err.Error())
-	}
-	fakeLogger := new(fakeLogger)
-	workerPool := NewWorkerPool(q, 2, time.Millisecond, fakeLogger)
+	q.AddTask(task1)
+	q.AddTask(task2)
+	workerPool := NewWorkerPool(q, newFakeLogger())
 	go workerPool.Run()
-	time.Sleep(time.Second)
+
+	// wait when workers got all tasks
+	time.Sleep(time.Millisecond * 300)
+
 	if err := workerPool.Shutdown(time.Second); err != nil {
 		t.Error(`unexpected timeout error`)
 	}
@@ -176,5 +138,19 @@ func TestTask_Attempts(t *testing.T) {
 	}
 	if task2Counter != int64(attempts) {
 		t.Errorf("wrong count of execution. expect - %d, got - %d", attempts, task2Counter)
+	}
+}
+
+func TestWorkerOptions(t *testing.T) {
+	workerPool := NewWorkerPool(
+		NewMemoryQueue(),
+		newFakeLogger(),
+		WithPeriodicity(300*time.Millisecond),
+		WithWorkers(20))
+	if workerPool.periodicity != 300*time.Millisecond {
+		t.Error("unexpected periodicity")
+	}
+	if workerPool.countWorkers != 20 {
+		t.Error("unexpected count of workers")
 	}
 }

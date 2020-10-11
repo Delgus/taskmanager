@@ -21,36 +21,34 @@ func TestPriorityInMemoryQueue(t *testing.T) {
 
 	q := NewMemoryQueue()
 	for _, task := range tasks {
-		if err := q.AddTask(task); err != nil {
-			t.Errorf(`unexpected error: %s`, err.Error())
-		}
+		q.AddTask(task)
 	}
 
-	highest, _ := q.GetTask()
+	highest := q.GetTask()
 	priority := highest.Priority()
 	if priority != HighestPriority {
 		t.Errorf(`unexpected priority: expect %d get %d"`, HighestPriority, priority)
 	}
 
-	high, _ := q.GetTask()
+	high := q.GetTask()
 	priority = high.Priority()
 	if priority != HighPriority {
 		t.Errorf(`unexpected priority: expect %d get %d"`, HighPriority, priority)
 	}
 
-	middle, _ := q.GetTask()
+	middle := q.GetTask()
 	priority = middle.Priority()
 	if priority != MiddlePriority {
 		t.Errorf(`unexpected priority: expect %d get %d"`, MiddlePriority, priority)
 	}
 
-	low, _ := q.GetTask()
+	low := q.GetTask()
 	priority = low.Priority()
 	if priority != LowPriority {
 		t.Errorf(`unexpected priority: expect %d get %d"`, LowPriority, priority)
 	}
 
-	lowest, _ := q.GetTask()
+	lowest := q.GetTask()
 	priority = lowest.Priority()
 	if priority != LowestPriority {
 		t.Errorf(`unexpected priority: expect %d get %d"`, LowestPriority, priority)
@@ -59,14 +57,12 @@ func TestPriorityInMemoryQueue(t *testing.T) {
 
 func TestGetTaskFromMemoryQueue(t *testing.T) {
 	q := NewMemoryQueue()
-	if task, _ := q.GetTask(); task != nil {
+	if task := q.GetTask(); task != nil {
 		t.Error(`unexpected TaskInterface, expect nil`)
 	}
 	testTask := NewTask(HighestPriority, func() error { return nil })
-	if err := q.AddTask(testTask); err != nil {
-		t.Errorf(`unexpected error: %s`, err.Error())
-	}
-	taskFromQueue, _ := q.GetTask()
+	q.AddTask(testTask)
+	taskFromQueue := q.GetTask()
 	if testTask != taskFromQueue {
 		t.Error(`one task from queue is not equal task put in queue `)
 	}
@@ -88,13 +84,11 @@ func TestCountTasksForMemoryQueue(t *testing.T) {
 		rand.Seed(time.Now().UnixNano())
 		rand.Shuffle(len(tasks), func(i, j int) { tasks[i], tasks[j] = tasks[j], tasks[i] })
 
-		if err := q.AddTask(tasks[0]); err != nil {
-			t.Errorf(`unexpected error: %s`, err.Error())
-		}
+		q.AddTask(tasks[0])
 	}
 	var tasksOut int
 	for {
-		task, _ := q.GetTask()
+		task := q.GetTask()
 		if task == nil {
 			break
 		}
@@ -119,11 +113,11 @@ func TestFIFOForMemoryQueue(t *testing.T) {
 		NewTask(HighestPriority, func() error { number = 5; return nil }),
 	}
 	for _, t := range tasks {
-		_ = q.AddTask(t)
+		q.AddTask(t)
 	}
 
 	for i := 1; i <= taskIn; i++ {
-		task, _ := q.GetTask()
+		task := q.GetTask()
 		_ = task.Exec()
 		if i != number {
 			t.Error("not right order")
@@ -134,29 +128,27 @@ func TestFIFOForMemoryQueue(t *testing.T) {
 func TestRaceConditionForMemoryQueue(t *testing.T) {
 	q := NewMemoryQueue()
 	go func() {
-		if err := q.AddTask(NewTask(HighestPriority, func() error { return nil })); err != nil {
-			t.Errorf(`unexpected error: %s`, err.Error())
-		}
+		q.AddTask(NewTask(HighestPriority, func() error { return nil }))
 	}()
-	_, _ = q.GetTask()
+	q.GetTask()
 }
 
 func BenchmarkMemoryQueue_AddTask(b *testing.B) {
 	queue := NewMemoryQueue()
 	for n := 0; n < b.N; n++ {
-		_ = queue.AddTask(NewTask(HighPriority, func() error {
+		queue.AddTask(NewTask(HighPriority, func() error {
 			return nil
 		}))
-		_ = queue.AddTask(NewTask(LowPriority, func() error {
+		queue.AddTask(NewTask(LowPriority, func() error {
 			return nil
 		}))
-		_ = queue.AddTask(NewTask(MiddlePriority, func() error {
+		queue.AddTask(NewTask(MiddlePriority, func() error {
 			return nil
 		}))
-		_ = queue.AddTask(NewTask(LowestPriority, func() error {
+		queue.AddTask(NewTask(LowestPriority, func() error {
 			return nil
 		}))
-		_ = queue.AddTask(NewTask(HighestPriority, func() error {
+		queue.AddTask(NewTask(HighestPriority, func() error {
 			return nil
 		}))
 	}
@@ -167,29 +159,29 @@ func BenchmarkSliceQueue_GetTask(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
 		for i := 0; i < 200; i++ {
-			_ = queue.AddTask(NewTask(HighPriority, func() error {
+			queue.AddTask(NewTask(HighPriority, func() error {
 				return nil
 			}))
-			_ = queue.AddTask(NewTask(LowPriority, func() error {
+			queue.AddTask(NewTask(LowPriority, func() error {
 				return nil
 			}))
-			_ = queue.AddTask(NewTask(MiddlePriority, func() error {
+			queue.AddTask(NewTask(MiddlePriority, func() error {
 				return nil
 			}))
-			_ = queue.AddTask(NewTask(LowestPriority, func() error {
+			queue.AddTask(NewTask(LowestPriority, func() error {
 				return nil
 			}))
-			_ = queue.AddTask(NewTask(HighestPriority, func() error {
+			queue.AddTask(NewTask(HighestPriority, func() error {
 				return nil
 			}))
 		}
 		b.StartTimer()
 		for i := 0; i < 200; i++ {
-			_, _ = queue.GetTask()
-			_, _ = queue.GetTask()
-			_, _ = queue.GetTask()
-			_, _ = queue.GetTask()
-			_, _ = queue.GetTask()
+			queue.GetTask()
+			queue.GetTask()
+			queue.GetTask()
+			queue.GetTask()
+			queue.GetTask()
 		}
 	}
 }
