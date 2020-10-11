@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-func TestPriorityInSliceQueue(t *testing.T) {
+func TestPriorityInMemoryQueue(t *testing.T) {
 	tasks := []*Task{
 		NewTask(HighestPriority, func() error { return nil }),
 		NewTask(HighPriority, func() error { return nil }),
@@ -57,7 +57,7 @@ func TestPriorityInSliceQueue(t *testing.T) {
 	}
 }
 
-func TestGetTaskFromSliceQueue(t *testing.T) {
+func TestGetTaskFromMemoryQueue(t *testing.T) {
 	q := NewMemoryQueue()
 	if task, _ := q.GetTask(); task != nil {
 		t.Error(`unexpected TaskInterface, expect nil`)
@@ -72,7 +72,7 @@ func TestGetTaskFromSliceQueue(t *testing.T) {
 	}
 }
 
-func TestCountTasksForSliceQueue(t *testing.T) {
+func TestCountTasksForMemoryQueue(t *testing.T) {
 	q := NewMemoryQueue()
 
 	tasksIn := 64
@@ -106,7 +106,7 @@ func TestCountTasksForSliceQueue(t *testing.T) {
 	}
 }
 
-func TestFIFO(t *testing.T) {
+func TestFIFOForMemoryQueue(t *testing.T) {
 	q := NewMemoryQueue()
 
 	var number int
@@ -131,7 +131,7 @@ func TestFIFO(t *testing.T) {
 	}
 }
 
-func TestRaceConditionForSliceQueue(t *testing.T) {
+func TestRaceConditionForMemoryQueue(t *testing.T) {
 	q := NewMemoryQueue()
 	go func() {
 		if err := q.AddTask(NewTask(HighestPriority, func() error { return nil })); err != nil {
@@ -141,7 +141,7 @@ func TestRaceConditionForSliceQueue(t *testing.T) {
 	_, _ = q.GetTask()
 }
 
-func BenchmarkSliceQueue_AddTask(b *testing.B) {
+func BenchmarkMemoryQueue_AddTask(b *testing.B) {
 	queue := NewMemoryQueue()
 	for n := 0; n < b.N; n++ {
 		_ = queue.AddTask(NewTask(HighPriority, func() error {

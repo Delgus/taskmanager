@@ -47,16 +47,15 @@ func TestWorkerPool(t *testing.T) {
 
 	var workCounter int64
 
-	var countTasks = 5
-
-	testTask := NewTask(HighestPriority, func() error {
+	var calcTask = func() error {
 		atomic.AddInt64(&workCounter, 1)
 		time.Sleep(time.Second * 2)
 		return nil
-	})
+	}
+	var countTasks = 5
 
 	for i := 0; i < countTasks; i++ {
-		if err := q.AddTask(testTask); err != nil {
+		if err := q.AddTask(NewTask(HighestPriority, calcTask)); err != nil {
 			t.Errorf(`unexpected error: %s`, err.Error())
 		}
 	}
@@ -73,7 +72,7 @@ func TestWorkerPool(t *testing.T) {
 	}
 
 	if workCounter != int64(countTasks) {
-		t.Error(`not all tasks completed`)
+		t.Errorf(`different count: adding - %d executing - %d`, countTasks, workCounter)
 	}
 }
 
@@ -139,4 +138,44 @@ func TestWorkerLogErrorByGetTask(t *testing.T) {
 	} else {
 		t.Errorf(`expected error. got %v`, fakeLogger.buffer)
 	}
+}
+
+func TestTask_Attempts(t *testing.T) {
+	q := NewMemoryQueue()
+
+	var task1Counter int64
+	task1 := NewTask(HighestPriority, func() error {
+		atomic.AddInt64(&task1Counter, 1)
+		return nil
+	})
+
+	var task2Counter int64
+	var attempts uint32 = 5
+	task2 := NewTask(HighestPriority, func() error {
+		atomic.AddInt64(&task2Counter, 1)
+		return fmt.Errorf("oops")
+	})
+	task2.SetAttempts(attempts)
+
+	if err := q.AddTask(task1); err != nil {
+		t.Errorf(`unexpected error: %s`, err.Error())
+	}
+	if err := q.AddTask(task2); err != nil {
+		t.Errorf(`unexpected error: %s`, err.Error())
+	}
+	fakeLogger := new(fakeLogger)
+	workerPool := NewWorkerPool(q, 2, time.Millisecond, fakeLogger)
+	go workerPool.Run()
+	time.Sleep(time.Second)
+	if err := workerPool.Shutdown(time.Second); err != nil {
+		t.Error(`unexpected timeout error`)
+	}
+
+	if task1Counter != 1 {
+		t.Errorf("wrong count of execution. expect - 1, got - %d", task1Counter)
+	}
+	if task2Counter != int64(attempts) {
+		t.Errorf("wrong count of execution. expect - %d, got - %d", attempts, task2Counter)
+	}
+
 }

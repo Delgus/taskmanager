@@ -1,7 +1,7 @@
 package taskmanager
 
 // Priority - type for priority level
-type Priority int
+type Priority uint8
 
 const (
 	// HighestPriority - highest priority level
@@ -19,8 +19,13 @@ const (
 type executor interface {
 	Exec() error
 }
-type prioritier interface {
+
+type priorityHaving interface {
 	Priority() Priority
+}
+
+type attempts interface {
+	Attempts() uint32
 }
 
 // Event - type for event name
@@ -38,7 +43,7 @@ const (
 	FailedEvent Event = "failed"
 )
 
-type eventer interface {
+type eventEmitter interface {
 	OnEvent(event Event, handler EventHandler)
 	EmitEvent(event Event)
 }
@@ -46,8 +51,9 @@ type eventer interface {
 // Task interface
 type TaskInterface interface {
 	executor
-	prioritier
-	eventer
+	priorityHaving
+	eventEmitter
+	attempts
 }
 
 // Queue interface

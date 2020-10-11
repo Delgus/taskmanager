@@ -67,8 +67,10 @@ func (w *WorkerPool) Run() {
 
 func (w *WorkerPool) work() {
 	for task := range w.taskCh {
-		if err := task.Exec(); err != nil {
-			w.logger.Error(err)
+		for task.Attempts() != 0 {
+			if err := task.Exec(); err != nil {
+				w.logger.Error(err)
+			}
 		}
 	}
 	w.wg.Done()

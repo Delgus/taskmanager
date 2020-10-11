@@ -1,10 +1,15 @@
 package taskmanager
 
+import (
+	"sync/atomic"
+)
+
 // Task implement TaskInterface
 type Task struct {
 	events   map[Event][]EventHandler
 	priority Priority
 	handler  TaskHandler
+	attempts uint32
 }
 
 // TaskHandler type handle for task or job
@@ -16,6 +21,7 @@ func NewTask(priority Priority, handler TaskHandler) *Task {
 		events:   make(map[Event][]EventHandler),
 		priority: priority,
 		handler:  handler,
+		attempts: 1,
 	}
 	return task
 }
@@ -25,6 +31,16 @@ func (t *Task) Priority() Priority {
 	return t.priority
 }
 
+// SetAttempts set attempts
+func (t *Task) SetAttempts(attempts uint32) {
+	atomic.StoreUint32(&t.attempts, attempts)
+}
+
+// SetAttempts set attempts
+func (t *Task) Attempts() uint32 {
+	return atomic.LoadUint32(&t.attempts)
+}
+
 // Exec - Perform the task
 // When the task starts emitting BeforeExecEvent
 // If the task is unsuccessful calling the FailedEvent
@@ -32,6 +48,7 @@ func (t *Task) Priority() Priority {
 // At the end of the task, if it has passed successfully, call the AfterExecEvent event
 func (t *Task) Exec() error {
 	t.EmitEvent(BeforeExecEvent)
+	atomic.StoreUint32(&t.attempts, atomic.LoadUint32(&t.attempts)-1)
 	if err := t.handler(); err != nil {
 		t.EmitEvent(FailedEvent)
 		return err

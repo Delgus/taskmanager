@@ -34,7 +34,7 @@ func (s *storage) first() TaskInterface {
 	return item
 }
 
-// HeapQueue implement queue with priority
+// MemoryQueue implement queue with priority
 type MemoryQueue struct {
 	store [5]*storage
 }
@@ -52,14 +52,14 @@ func NewMemoryQueue() *MemoryQueue {
 }
 
 // AddTask add task
-func (q *MemoryQueue) AddTask(task TaskInterface) error {
-	q.store[task.Priority()].append(task)
+func (mq *MemoryQueue) AddTask(task TaskInterface) error {
+	mq.store[task.Priority()].append(task)
 	return nil
 }
 
 // GetTask get task
-func (q *MemoryQueue) GetTask() (task TaskInterface, err error) {
-	for _, t := range q.store {
+func (mq *MemoryQueue) GetTask() (task TaskInterface, err error) {
+	for _, t := range mq.store {
 		if t.len() > 0 {
 			return t.first(), nil
 		}
