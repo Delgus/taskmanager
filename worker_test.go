@@ -177,5 +177,4 @@ func TestTask_Attempts(t *testing.T) {
 	if task2Counter != int64(attempts) {
 		t.Errorf("wrong count of execution. expect - %d, got - %d", attempts, task2Counter)
 	}
-
 }
