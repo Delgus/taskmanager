@@ -15,13 +15,13 @@ type Logger interface {
 type WorkerPool struct {
 	logger            Logger
 	queue             QueueInterface
-	wg                sync.WaitGroup
 	maxWorkers        int                // count of workers
 	periodicityTicker *time.Ticker       // period for check task in queue
 	closeTaskCh       chan struct{}      // channel for stopped getting of tasks
 	taskCh            chan TaskInterface // channel for tasks
 	quit              chan struct{}
 	errors            chan error
+	sync.WaitGroup
 }
 
 // NewWorkerPool constructor for create WorkerPool
@@ -66,7 +66,7 @@ func (w *WorkerPool) Run() {
 		}
 	}()
 
-	w.wg.Add(w.maxWorkers)
+	w.Add(w.maxWorkers)
 	for i := 0; i < w.maxWorkers; i++ {
 		go w.work()
 	}
@@ -81,7 +81,7 @@ func (w *WorkerPool) work() {
 			}
 		}
 	}
-	w.wg.Done()
+	w.Done()
 }
 
 // Shutdown - the worker will not stop until he has completed all the unfinished tasks
@@ -91,7 +91,7 @@ func (w *WorkerPool) Shutdown(timeout time.Duration) error {
 
 	ok := make(chan struct{})
 	go func() {
-		w.wg.Wait()
+		w.Wait()
 		ok <- struct{}{}
 	}()
 
