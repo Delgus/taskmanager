@@ -19,7 +19,7 @@ func TestPriorityInSliceQueue(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(tasks), func(i, j int) { tasks[i], tasks[j] = tasks[j], tasks[i] })
 
-	q := NewSliceQueue()
+	q := NewMemoryQueue()
 	for _, task := range tasks {
 		if err := q.AddTask(task); err != nil {
 			t.Errorf(`unexpected error: %s`, err.Error())
@@ -58,7 +58,7 @@ func TestPriorityInSliceQueue(t *testing.T) {
 }
 
 func TestGetTaskFromSliceQueue(t *testing.T) {
-	q := NewSliceQueue()
+	q := NewMemoryQueue()
 	if task, _ := q.GetTask(); task != nil {
 		t.Error(`unexpected TaskInterface, expect nil`)
 	}
@@ -73,7 +73,7 @@ func TestGetTaskFromSliceQueue(t *testing.T) {
 }
 
 func TestCountTasksForSliceQueue(t *testing.T) {
-	q := NewSliceQueue()
+	q := NewMemoryQueue()
 
 	tasksIn := 64
 	tasks := []*Task{
@@ -106,8 +106,33 @@ func TestCountTasksForSliceQueue(t *testing.T) {
 	}
 }
 
+func TestFIFO(t *testing.T) {
+	q := NewMemoryQueue()
+
+	var number int
+	taskIn := 5
+	tasks := []*Task{
+		NewTask(HighestPriority, func() error { number = 1; return nil }),
+		NewTask(HighestPriority, func() error { number = 2; return nil }),
+		NewTask(HighestPriority, func() error { number = 3; return nil }),
+		NewTask(HighestPriority, func() error { number = 4; return nil }),
+		NewTask(HighestPriority, func() error { number = 5; return nil }),
+	}
+	for _, t := range tasks {
+		_ = q.AddTask(t)
+	}
+
+	for i := 1; i <= taskIn; i++ {
+		task, _ := q.GetTask()
+		_ = task.Exec()
+		if i != number {
+			t.Error("not right order")
+		}
+	}
+}
+
 func TestRaceConditionForSliceQueue(t *testing.T) {
-	q := NewSliceQueue()
+	q := NewMemoryQueue()
 	go func() {
 		if err := q.AddTask(NewTask(HighestPriority, func() error { return nil })); err != nil {
 			t.Errorf(`unexpected error: %s`, err.Error())
@@ -117,7 +142,7 @@ func TestRaceConditionForSliceQueue(t *testing.T) {
 }
 
 func BenchmarkSliceQueue_AddTask(b *testing.B) {
-	queue := NewSliceQueue()
+	queue := NewMemoryQueue()
 	for n := 0; n < b.N; n++ {
 		_ = queue.AddTask(NewTask(HighPriority, func() error {
 			return nil
@@ -138,7 +163,7 @@ func BenchmarkSliceQueue_AddTask(b *testing.B) {
 }
 
 func BenchmarkSliceQueue_GetTask(b *testing.B) {
-	queue := NewSliceQueue()
+	queue := NewMemoryQueue()
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
 		for i := 0; i < 200; i++ {

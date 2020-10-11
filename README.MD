@@ -45,10 +45,7 @@ task.OnEvent(taskmanager.BeforeExecEvent, func() {
 
 #### Create queue
 ```go
-// queue in memory with heap
-queue1 := new(taskmanager.HeapQueue)
-// queue in memory with slice for priority
-queue2 := NewSliceQueue()
+queue := NewMemoryQueue()
 ```
 
 #### add task to queue

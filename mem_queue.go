@@ -26,22 +26,21 @@ func (s *storage) append(item TaskInterface) {
 	s.items = append(s.items, item)
 }
 
-func (s *storage) last() TaskInterface {
+func (s *storage) first() TaskInterface {
 	s.Lock()
 	defer s.Unlock()
-	item := s.items[len(s.items)-1]
-	s.items[len(s.items)-1] = nil
-	s.items = s.items[:len(s.items)-1]
+	item := s.items[0]
+	s.items = s.items[1:]
 	return item
 }
 
 // HeapQueue implement queue with priority
-type SliceQueue struct {
+type MemoryQueue struct {
 	store [5]*storage
 }
 
-func NewSliceQueue() *SliceQueue {
-	return &SliceQueue{
+func NewMemoryQueue() *MemoryQueue {
+	return &MemoryQueue{
 		store: [5]*storage{
 			HighestPriority: newStorage(),
 			HighPriority:    newStorage(),
@@ -53,16 +52,16 @@ func NewSliceQueue() *SliceQueue {
 }
 
 // AddTask add task
-func (q *SliceQueue) AddTask(task TaskInterface) error {
+func (q *MemoryQueue) AddTask(task TaskInterface) error {
 	q.store[task.Priority()].append(task)
 	return nil
 }
 
 // GetTask get task
-func (q *SliceQueue) GetTask() (task TaskInterface, err error) {
+func (q *MemoryQueue) GetTask() (task TaskInterface, err error) {
 	for _, t := range q.store {
 		if t.len() > 0 {
-			return t.last(), nil
+			return t.first(), nil
 		}
 	}
 	return nil, nil

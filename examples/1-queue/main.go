@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	tq := new(taskmanager.HeapQueue)
+	tq := taskmanager.NewMemoryQueue()
 
 	lTask := taskmanager.NewTask(taskmanager.LowestPriority, func() error {
 		fmt.Println("i lowest! good work!")

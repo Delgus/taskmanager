@@ -43,7 +43,7 @@ func (b *brokenQueue) addError(err error) {
 }
 
 func TestWorkerPool(t *testing.T) {
-	q := new(HeapQueue)
+	q := NewMemoryQueue()
 
 	var workCounter int64
 
@@ -78,7 +78,7 @@ func TestWorkerPool(t *testing.T) {
 }
 
 func TestWorkerPool_Shutdown(t *testing.T) {
-	q := new(HeapQueue)
+	q := NewMemoryQueue()
 
 	testTask := NewTask(HighestPriority, func() error {
 		time.Sleep(time.Second * 10)
@@ -96,7 +96,7 @@ func TestWorkerPool_Shutdown(t *testing.T) {
 }
 
 func TestWorkerLogTaskError(t *testing.T) {
-	q := new(HeapQueue)
+	q := NewMemoryQueue()
 
 	oops := fmt.Errorf("oops")
 	testTask := NewTask(HighestPriority, func() error {

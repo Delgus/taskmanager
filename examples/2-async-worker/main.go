@@ -11,7 +11,7 @@ import (
 )
 
 func main() {
-	q := new(taskmanager.HeapQueue)
+	q := taskmanager.NewMemoryQueue()
 	// async adding tasks
 	stopAddTasks := make(chan struct{})
 	go func() {
