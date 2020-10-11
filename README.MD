@@ -45,7 +45,7 @@ task.OnEvent(taskmanager.BeforeExecEvent, func() {
 
 #### Create queue
 ```go
-queue := NewMemoryQueue()
+queue := taskmanager.NewMemoryQueue()
 ```
 
 #### add task to queue
