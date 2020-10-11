@@ -3,6 +3,7 @@ package taskmanager
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -10,10 +11,19 @@ import (
 
 type fakeLogger struct {
 	buffer interface{}
+	sync.Mutex
 }
 
 func (f *fakeLogger) Error(info ...interface{}) {
+	f.Lock()
 	f.buffer = info[0]
+	f.Unlock()
+}
+
+func (f *fakeLogger) getBuffer() interface{} {
+	f.Lock()
+	defer f.Unlock()
+	return f.buffer
 }
 
 type brokenQueue struct {
@@ -102,8 +112,12 @@ func TestWorkerLogTaskError(t *testing.T) {
 	if err := workerPool.Shutdown(time.Second); err != nil {
 		t.Error(`unexpected timeout error`)
 	}
-	if fakeLogger.buffer != oops {
-		t.Errorf(`expected logger text: %v got %v`, fakeLogger.buffer, oops)
+	if errFromLogger, ok := fakeLogger.getBuffer().(error); ok {
+		if !errors.Is(errFromLogger, oops) {
+			t.Errorf(`expected logger text: %v got %v`, fakeLogger.buffer, oops)
+		}
+	} else {
+		t.Errorf(`expected error. got %v`, fakeLogger.buffer)
 	}
 }
 
@@ -118,7 +132,7 @@ func TestWorkerLogErrorByGetTask(t *testing.T) {
 	if err := workerPool.Shutdown(time.Second); err != nil {
 		t.Error(`unexpected timeout error`)
 	}
-	if errFromLogger, ok := fakeLogger.buffer.(error); ok {
+	if errFromLogger, ok := fakeLogger.getBuffer().(error); ok {
 		if !errors.Is(errFromLogger, oops) {
 			t.Errorf(`expected logger text: %v got %v`, fakeLogger.buffer, oops)
 		}

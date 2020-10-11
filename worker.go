@@ -45,7 +45,7 @@ func (w *WorkerPool) Run() {
 			select {
 			case <-w.closeTaskCh:
 				close(w.taskCh)
-				return
+				w.periodicityTicker.Stop()
 			case <-w.periodicityTicker.C:
 				task, err := w.queue.GetTask()
 				if err != nil {

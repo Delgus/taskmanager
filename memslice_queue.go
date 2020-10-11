@@ -1,11 +1,9 @@
 package taskmanager
 
-import (
-	"sync"
-)
+import "sync"
 
 type storage struct {
-	sync.RWMutex
+	sync.Mutex
 	items []TaskInterface
 }
 
