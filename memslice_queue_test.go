@@ -19,7 +19,7 @@ func TestPriorityInSliceQueue(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(tasks), func(i, j int) { tasks[i], tasks[j] = tasks[j], tasks[i] })
 
-	q := NewSliceQueue(1)
+	q := NewSliceQueue()
 	for _, task := range tasks {
 		if err := q.AddTask(task); err != nil {
 			t.Errorf(`unexpected error: %s`, err.Error())
@@ -58,7 +58,7 @@ func TestPriorityInSliceQueue(t *testing.T) {
 }
 
 func TestGetTaskFromSliceQueue(t *testing.T) {
-	q := NewSliceQueue(1)
+	q := NewSliceQueue()
 	if task, _ := q.GetTask(); task != nil {
 		t.Error(`unexpected TaskInterface, expect nil`)
 	}
@@ -73,7 +73,7 @@ func TestGetTaskFromSliceQueue(t *testing.T) {
 }
 
 func TestCountTasksForSliceQueue(t *testing.T) {
-	q := NewSliceQueue(100)
+	q := NewSliceQueue()
 
 	tasksIn := 64
 	tasks := []*Task{
@@ -107,7 +107,7 @@ func TestCountTasksForSliceQueue(t *testing.T) {
 }
 
 func TestRaceConditionForSliceQueue(t *testing.T) {
-	q := NewSliceQueue(1)
+	q := NewSliceQueue()
 	go func() {
 		if err := q.AddTask(NewTask(HighestPriority, func() error { return nil })); err != nil {
 			t.Errorf(`unexpected error: %s`, err.Error())
@@ -116,18 +116,8 @@ func TestRaceConditionForSliceQueue(t *testing.T) {
 	_, _ = q.GetTask()
 }
 
-func TestBufferOverflowForSliceQueue(t *testing.T) {
-	q := NewSliceQueue(1)
-	if err := q.AddTask(NewTask(HighestPriority, func() error { return nil })); err != nil {
-		t.Errorf(`unexpected error: %s`, err.Error())
-	}
-	if err := q.AddTask(NewTask(HighestPriority, func() error { return nil })); err == nil {
-		t.Error(`expected error!`)
-	}
-}
-
 func BenchmarkSliceQueue_AddTask(b *testing.B) {
-	queue := NewSliceQueue(100)
+	queue := NewSliceQueue()
 	for n := 0; n < b.N; n++ {
 		_ = queue.AddTask(NewTask(HighPriority, func() error {
 			return nil
@@ -148,7 +138,7 @@ func BenchmarkSliceQueue_AddTask(b *testing.B) {
 }
 
 func BenchmarkSliceQueue_GetTask(b *testing.B) {
-	queue := NewSliceQueue(200)
+	queue := NewSliceQueue()
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
 		for i := 0; i < 200; i++ {
