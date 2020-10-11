@@ -21,6 +21,7 @@ type WorkerPool struct {
 	closeTaskCh       chan struct{}      // channel for stopped getting of tasks
 	taskCh            chan TaskInterface // channel for tasks
 	quit              chan struct{}
+	errors            chan error
 }
 
 // NewWorkerPool constructor for create WorkerPool
@@ -35,6 +36,7 @@ func NewWorkerPool(queue QueueInterface, maxWorkers int, periodicity time.Durati
 		closeTaskCh:       make(chan struct{}),
 		taskCh:            make(chan TaskInterface),
 		quit:              make(chan struct{}),
+		errors:            make(chan error),
 	}
 }
 
@@ -49,12 +51,18 @@ func (w *WorkerPool) Run() {
 			case <-w.periodicityTicker.C:
 				task, err := w.queue.GetTask()
 				if err != nil {
-					w.logger.Error(fmt.Errorf(`can not get task from queue: %w`, err))
+					w.errors <- fmt.Errorf(`can not get task from queue: %w`, err)
 				}
 				if task != nil {
 					w.taskCh <- task
 				}
 			}
+		}
+	}()
+
+	go func() {
+		for err := range w.errors {
+			w.logger.Error(err)
 		}
 	}()
 
@@ -69,7 +77,7 @@ func (w *WorkerPool) work() {
 	for task := range w.taskCh {
 		for task.Attempts() != 0 {
 			if err := task.Exec(); err != nil {
-				w.logger.Error(err)
+				w.errors <- err
 			}
 		}
 	}
