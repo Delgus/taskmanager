@@ -126,7 +126,7 @@ func TestTask_Attempts(t *testing.T) {
 
 	q.AddTask(task1)
 	q.AddTask(task2)
-	workerPool := NewWorkerPool(q, newFakeLogger())
+	workerPool := NewWorkerPool(q, newFakeLogger(), WithPollTaskInterval(50 * time.Millisecond))
 	go workerPool.Run()
 
 	// wait when workers got all tasks
