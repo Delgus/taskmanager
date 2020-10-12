@@ -77,7 +77,8 @@ func TestWorkerPool_Shutdown(t *testing.T) {
 	go workerPool.Run()
 	// wait when workers got all tasks
 	time.Sleep(time.Millisecond * 300)
-	ctx, _ := context.WithTimeout(context.Background(),time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
 	if err := workerPool.Shutdown(ctx); err == nil {
 		t.Error(`expected timeout error`)
 	}
