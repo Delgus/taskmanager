@@ -1,7 +1,7 @@
 package taskmanager
 
 import (
-	"fmt"
+	"context"
 	"sync"
 	"time"
 )
@@ -13,22 +13,21 @@ type Logger interface {
 
 // WorkerPool of workers
 type WorkerPool struct {
-	logger         Logger
-	queue          QueueInterface
-	countWorkers   uint32        // count of workers
-	periodicity    time.Duration // period for check task in queue
-	quit           chan struct{}
-	errors         chan error
-	closeWorkersCh chan struct{}
-	sync.Mutex
+	logger           Logger
+	queue            QueueInterface
+	countWorkers     uint32        // count of workers
+	pollTaskInterval time.Duration // period for check task in queue
+	quit             chan struct{}
+	errors           chan error
+	closeWorkersCh   chan struct{}
 	sync.WaitGroup
 }
 
 type Option func(*WorkerPool)
 
-func WithPeriodicity(duration time.Duration) Option {
+func WithPollTaskInterval(duration time.Duration) Option {
 	return func(w *WorkerPool) {
-		w.periodicity = duration
+		w.pollTaskInterval = duration
 	}
 }
 
@@ -41,13 +40,13 @@ func WithWorkers(count uint32) Option {
 // NewWorkerPool constructor for create WorkerPool
 func NewWorkerPool(queue QueueInterface, logger Logger, opts ...Option) *WorkerPool {
 	wp := WorkerPool{
-		logger:         logger,
-		queue:          queue,
-		countWorkers:   10,
-		periodicity:    100 * time.Millisecond,
-		closeWorkersCh: make(chan struct{}),
-		quit:           make(chan struct{}),
-		errors:         make(chan error),
+		logger:           logger,
+		queue:            queue,
+		countWorkers:     10,
+		pollTaskInterval: 200 * time.Millisecond,
+		closeWorkersCh:   make(chan struct{}),
+		quit:             make(chan struct{}),
+		errors:           make(chan error),
 	}
 
 	for _, opt := range opts {
@@ -73,8 +72,9 @@ func (w *WorkerPool) Run() {
 }
 
 func (w *WorkerPool) work() {
-	ticker := time.NewTicker(w.periodicity)
-loop:
+	defer w.Done()
+	ticker := time.NewTicker(w.pollTaskInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
@@ -88,17 +88,17 @@ loop:
 					w.queue.AddTask(task)
 				}
 			}
-
 		case <-w.closeWorkersCh:
-			break loop
+			return
 		}
 	}
-	w.Done()
 }
 
 // Shutdown - the worker will not stop until he has completed all the unfinished tasks
 // or the timeout does not expire
-func (w *WorkerPool) Shutdown(timeout time.Duration) error {
+func (w *WorkerPool) Shutdown(ctx context.Context) error {
+	defer close(w.quit)
+
 	ok := make(chan struct{})
 	go func() {
 		for i := 0; i < int(w.countWorkers); i++ {
@@ -108,12 +108,16 @@ func (w *WorkerPool) Shutdown(timeout time.Duration) error {
 		ok <- struct{}{}
 	}()
 
-	select {
-	case <-ok:
-		close(w.quit)
-		return nil
-	case <-time.After(timeout):
-		close(w.quit)
-		return fmt.Errorf(`taskmanager: timeout error`)
+	var shutdownPollInterval = 500 * time.Millisecond
+	ticker := time.NewTicker(shutdownPollInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ok:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
 	}
 }

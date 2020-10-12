@@ -1,6 +1,7 @@
 package taskmanager
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync/atomic"
@@ -55,7 +56,7 @@ func TestWorkerPool(t *testing.T) {
 	// wait when workers got all tasks
 	time.Sleep(time.Millisecond * 300)
 
-	if err := worker.Shutdown(time.Second); err != nil {
+	if err := worker.Shutdown(context.Background()); err != nil {
 		t.Errorf(`unexpected error - %v`, err)
 	}
 
@@ -76,7 +77,8 @@ func TestWorkerPool_Shutdown(t *testing.T) {
 	go workerPool.Run()
 	// wait when workers got all tasks
 	time.Sleep(time.Millisecond * 300)
-	if err := workerPool.Shutdown(time.Second); err == nil {
+	ctx, _ := context.WithTimeout(context.Background(),time.Second)
+	if err := workerPool.Shutdown(ctx); err == nil {
 		t.Error(`expected timeout error`)
 	}
 }
@@ -96,8 +98,8 @@ func TestWorkerLogTaskError(t *testing.T) {
 	// wait when workers got all tasks
 	time.Sleep(time.Millisecond * 300)
 
-	if err := workerPool.Shutdown(time.Millisecond * 200); err != nil {
-		t.Error(`unexpected timeout error`)
+	if err := workerPool.Shutdown(context.Background()); err != nil {
+		t.Errorf(`unexpected shutdown error - %v`, err)
 	}
 	if err := fakeLogger.getError(); !errors.Is(err, oops) {
 		t.Errorf(`expected error: %v got: %v`, oops, err)
@@ -129,8 +131,8 @@ func TestTask_Attempts(t *testing.T) {
 	// wait when workers got all tasks
 	time.Sleep(time.Millisecond * 300)
 
-	if err := workerPool.Shutdown(time.Second); err != nil {
-		t.Error(`unexpected timeout error`)
+	if err := workerPool.Shutdown(context.Background()); err != nil {
+		t.Errorf(`unexpected shutdown error - %v`, err)
 	}
 
 	if task1Counter != 1 {
@@ -145,10 +147,10 @@ func TestWorkerOptions(t *testing.T) {
 	workerPool := NewWorkerPool(
 		NewMemoryQueue(),
 		newFakeLogger(),
-		WithPeriodicity(300*time.Millisecond),
+		WithPollTaskInterval(300*time.Millisecond),
 		WithWorkers(20))
-	if workerPool.periodicity != 300*time.Millisecond {
-		t.Error("unexpected periodicity")
+	if workerPool.pollTaskInterval != 300*time.Millisecond {
+		t.Error("unexpected pollTaskInterval")
 	}
 	if workerPool.countWorkers != 20 {
 		t.Error("unexpected count of workers")
