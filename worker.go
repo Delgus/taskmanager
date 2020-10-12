@@ -108,16 +108,12 @@ func (w *WorkerPool) Shutdown(ctx context.Context) error {
 		ok <- struct{}{}
 	}()
 
-	var shutdownPollInterval = 500 * time.Millisecond
-	ticker := time.NewTicker(shutdownPollInterval)
-	defer ticker.Stop()
 	for {
 		select {
 		case <-ok:
 			return nil
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
 		}
 	}
 }

@@ -24,6 +24,7 @@ func (s *storage) pop() TaskInterface {
 	defer s.Unlock()
 	if len(s.items) > 0 {
 		item := s.items[0]
+		s.items[0] = nil
 		s.items = s.items[1:]
 		return item
 	}
