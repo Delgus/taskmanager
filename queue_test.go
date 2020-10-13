@@ -19,7 +19,7 @@ func TestPriorityInMemoryQueue(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(len(tasks), func(i, j int) { tasks[i], tasks[j] = tasks[j], tasks[i] })
 
-	q := NewMemoryQueue()
+	q := NewQueue()
 	for _, task := range tasks {
 		q.AddTask(task)
 	}
@@ -56,7 +56,7 @@ func TestPriorityInMemoryQueue(t *testing.T) {
 }
 
 func TestGetTaskFromMemoryQueue(t *testing.T) {
-	q := NewMemoryQueue()
+	q := NewQueue()
 	if task := q.GetTask(); task != nil {
 		t.Error(`unexpected TaskInterface, expect nil`)
 	}
@@ -69,7 +69,7 @@ func TestGetTaskFromMemoryQueue(t *testing.T) {
 }
 
 func TestCountTasksForMemoryQueue(t *testing.T) {
-	q := NewMemoryQueue()
+	q := NewQueue()
 
 	tasksIn := 64
 	tasks := []*Task{
@@ -101,7 +101,7 @@ func TestCountTasksForMemoryQueue(t *testing.T) {
 }
 
 func TestFIFOForMemoryQueue(t *testing.T) {
-	q := NewMemoryQueue()
+	q := NewQueue()
 
 	var number int
 	taskIn := 5
@@ -126,7 +126,7 @@ func TestFIFOForMemoryQueue(t *testing.T) {
 }
 
 func TestRaceConditionForMemoryQueue(t *testing.T) {
-	q := NewMemoryQueue()
+	q := NewQueue()
 	go func() {
 		q.AddTask(NewTask(HighestPriority, func() error { return nil }))
 	}()
@@ -134,7 +134,7 @@ func TestRaceConditionForMemoryQueue(t *testing.T) {
 }
 
 func BenchmarkMemoryQueue_AddTask(b *testing.B) {
-	queue := NewMemoryQueue()
+	queue := NewQueue()
 	for n := 0; n < b.N; n++ {
 		queue.AddTask(NewTask(HighPriority, func() error {
 			return nil
@@ -155,7 +155,7 @@ func BenchmarkMemoryQueue_AddTask(b *testing.B) {
 }
 
 func BenchmarkSliceQueue_GetTask(b *testing.B) {
-	queue := NewMemoryQueue()
+	queue := NewQueue()
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
 		for i := 0; i < 200; i++ {

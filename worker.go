@@ -6,20 +6,15 @@ import (
 	"time"
 )
 
-// Logger interface
-type Logger interface {
-	Error(...interface{})
-}
-
 // WorkerPool of workers
 type WorkerPool struct {
-	logger           Logger
 	queue            QueueInterface
 	countWorkers     uint32        // count of workers
 	pollTaskInterval time.Duration // period for check task in queue
 	quit             chan struct{}
-	errors           chan error
 	closeWorkersCh   chan struct{}
+	returnErr        bool
+	Errors           chan error
 	sync.WaitGroup
 }
 
@@ -37,16 +32,21 @@ func WithWorkers(count uint32) Option {
 	}
 }
 
+func WithErrors() Option {
+	return func(w *WorkerPool) {
+		w.returnErr = true
+	}
+}
+
 // NewWorkerPool constructor for create WorkerPool
-func NewWorkerPool(queue QueueInterface, logger Logger, opts ...Option) *WorkerPool {
+func NewWorkerPool(queue QueueInterface, opts ...Option) *WorkerPool {
 	wp := WorkerPool{
-		logger:           logger,
 		queue:            queue,
 		countWorkers:     10,
 		pollTaskInterval: 200 * time.Millisecond,
 		closeWorkersCh:   make(chan struct{}),
 		quit:             make(chan struct{}),
-		errors:           make(chan error),
+		Errors:           make(chan error),
 	}
 
 	for _, opt := range opts {
@@ -58,12 +58,6 @@ func NewWorkerPool(queue QueueInterface, logger Logger, opts ...Option) *WorkerP
 
 // Run worker pool
 func (w *WorkerPool) Run() {
-	go func() {
-		for err := range w.errors {
-			w.logger.Error(err)
-		}
-	}()
-
 	w.Add(int(w.countWorkers))
 	for i := 0; i < int(w.countWorkers); i++ {
 		go w.work()
@@ -83,7 +77,9 @@ func (w *WorkerPool) work() {
 				continue
 			}
 			if err := task.Exec(); err != nil {
-				w.errors <- err
+				if w.returnErr {
+					w.Errors <- err
+				}
 				if task.Attempts() != 0 {
 					w.queue.AddTask(task)
 				}
@@ -108,12 +104,10 @@ func (w *WorkerPool) Shutdown(ctx context.Context) error {
 		ok <- struct{}{}
 	}()
 
-	for {
-		select {
-		case <-ok:
-			return nil
-		case <-ctx.Done():
-			return ctx.Err()
-		}
+	select {
+	case <-ok:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }

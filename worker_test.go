@@ -9,32 +9,8 @@ import (
 	"time"
 )
 
-// logger mock
-type fakeLogger struct{ err chan error }
-
-func newFakeLogger() *fakeLogger {
-	return &fakeLogger{
-		err: make(chan error, 100),
-	}
-}
-
-func (f *fakeLogger) Error(info ...interface{}) {
-	for _, i := range info {
-		if v, ok := i.(error); ok {
-			f.err <- v
-		}
-	}
-}
-
-func (f *fakeLogger) getError() error {
-	if len(f.err) > 0 {
-		return <-f.err
-	}
-	return nil
-}
-
 func TestWorkerPool(t *testing.T) {
-	q := NewMemoryQueue()
+	q := NewQueue()
 
 	var workCounter int64
 
@@ -49,7 +25,7 @@ func TestWorkerPool(t *testing.T) {
 		q.AddTask(NewTask(HighestPriority, calcTask))
 	}
 
-	worker := NewWorkerPool(q, newFakeLogger())
+	worker := NewWorkerPool(q)
 
 	go worker.Run()
 
@@ -66,14 +42,14 @@ func TestWorkerPool(t *testing.T) {
 }
 
 func TestWorkerPool_Shutdown(t *testing.T) {
-	q := NewMemoryQueue()
+	q := NewQueue()
 
 	testTask := NewTask(HighestPriority, func() error {
 		time.Sleep(time.Second * 2)
 		return nil
 	})
 	q.AddTask(testTask)
-	workerPool := NewWorkerPool(q, newFakeLogger())
+	workerPool := NewWorkerPool(q)
 	go workerPool.Run()
 	// wait when workers got all tasks
 	time.Sleep(time.Millisecond * 300)
@@ -84,31 +60,32 @@ func TestWorkerPool_Shutdown(t *testing.T) {
 	}
 }
 
-func TestWorkerLogTaskError(t *testing.T) {
-	q := NewMemoryQueue()
+func TestWorkerErrors(t *testing.T) {
+	q := NewQueue()
 
 	oops := fmt.Errorf("oops")
 	testTask := NewTask(HighestPriority, func() error {
 		return oops
 	})
 	q.AddTask(testTask)
-	fakeLogger := newFakeLogger()
-	workerPool := NewWorkerPool(q, fakeLogger)
+	workerPool := NewWorkerPool(q, WithErrors())
 	go workerPool.Run()
 
 	// wait when workers got all tasks
-	time.Sleep(time.Millisecond * 300)
+	time.Sleep(time.Millisecond * 100)
+
+	err := <-workerPool.Errors
+	if !errors.Is(err, oops) {
+		t.Errorf(`expected error: %v got: %v`, oops, err)
+	}
 
 	if err := workerPool.Shutdown(context.Background()); err != nil {
 		t.Errorf(`unexpected shutdown error - %v`, err)
 	}
-	if err := fakeLogger.getError(); !errors.Is(err, oops) {
-		t.Errorf(`expected error: %v got: %v`, oops, err)
-	}
 }
 
 func TestTask_Attempts(t *testing.T) {
-	q := NewMemoryQueue()
+	q := NewQueue()
 
 	var task1Counter int64
 	task1 := NewTask(HighestPriority, func() error {
@@ -126,7 +103,7 @@ func TestTask_Attempts(t *testing.T) {
 
 	q.AddTask(task1)
 	q.AddTask(task2)
-	workerPool := NewWorkerPool(q, newFakeLogger(), WithPollTaskInterval(50*time.Millisecond))
+	workerPool := NewWorkerPool(q, WithPollTaskInterval(50*time.Millisecond))
 	go workerPool.Run()
 
 	// wait when workers got all tasks
@@ -146,14 +123,17 @@ func TestTask_Attempts(t *testing.T) {
 
 func TestWorkerOptions(t *testing.T) {
 	workerPool := NewWorkerPool(
-		NewMemoryQueue(),
-		newFakeLogger(),
+		NewQueue(),
 		WithPollTaskInterval(300*time.Millisecond),
-		WithWorkers(20))
+		WithWorkers(20),
+		WithErrors())
 	if workerPool.pollTaskInterval != 300*time.Millisecond {
 		t.Error("unexpected pollTaskInterval")
 	}
 	if workerPool.countWorkers != 20 {
 		t.Error("unexpected count of workers")
+	}
+	if workerPool.returnErr != true {
+		t.Error("unexpected returnErr")
 	}
 }
