@@ -30,12 +30,9 @@ type Event string
 type EventHandler func()
 
 const (
-	// BeforeExecEvent ...
 	BeforeExecEvent Event = "before_exec"
-	// AfterExecEvent ...
-	AfterExecEvent Event = "after_exec"
-	// FailedEvent ...
-	FailedEvent Event = "failed"
+	AfterExecEvent  Event = "after_exec"
+	FailedEvent     Event = "failed"
 )
 
 type eventEmitter interface {

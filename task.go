@@ -36,7 +36,7 @@ func (t *Task) SetAttempts(attempts uint32) {
 	atomic.StoreUint32(&t.attempts, attempts)
 }
 
-// SetAttempts set attempts
+// Attempts return left attempts
 func (t *Task) Attempts() uint32 {
 	return atomic.LoadUint32(&t.attempts)
 }

@@ -28,7 +28,7 @@ func main() {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
-	wp := taskmanager.NewWorkerPool(q, taskmanager.WithErrors())
+	wp, _ := taskmanager.NewWorkerPool(q, taskmanager.WithErrors())
 	go wp.Run()
 	go func() {
 		for err := range wp.Errors {
