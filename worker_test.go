@@ -29,7 +29,7 @@ func TestWorkerPool(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpected err: %v", err)
 	}
-	if err := worker.SetMinWorkers(10);err != nil {
+	if err := worker.SetMinWorkers(10); err != nil {
 		t.Errorf("unexpected err: %v", err)
 	}
 

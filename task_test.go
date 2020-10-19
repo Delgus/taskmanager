@@ -9,7 +9,6 @@ func TestTask_Exec(t1 *testing.T) {
 	type fields struct {
 		priority Priority
 		handler  TaskHandler
-		attempts uint32
 	}
 	tests := []struct {
 		name    string
