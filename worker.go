@@ -10,41 +10,51 @@ import (
 
 // WorkerPool of workers
 type WorkerPool struct {
-	queue             QueueInterface
-	minWorkers        uint32 // minimal count of workers
-	maxWorkers        uint32 // maximal count of workers
-	minWorkingPercent uint32
-	maxWorkingPercent uint32
-	pollTaskInterval  time.Duration // period for check task in queue
-	scheduleInterval  time.Duration
-	tasks             chan TaskInterface
-	workers           map[*worker]struct{}
-	quit              chan struct{}
-	returnErr         bool
-	Errors            chan error
+	queue              QueueInterface
+	minWorkers         uint32 // minimal count of workers
+	maxWorkers         uint32 // maximal count of workers
+	minWorkingPercent  uint32
+	maxWorkingPercent  uint32
+	pollTaskTicker     *time.Ticker
+	scheduleTaskTicker *time.Ticker
+	tasks              chan TaskInterface
+	workers            map[*worker]struct{}
+	quit               chan struct{}
+	returnErr          bool
+	Errors             chan error
 	sync.Mutex
 }
 
-type Option func(*WorkerPool)
-
-// WithPollTaskInterval set duration for polling tasks from queue
-func WithPollTaskInterval(duration time.Duration) Option {
-	return func(w *WorkerPool) {
-		w.pollTaskInterval = duration
+// NewWorkerPool constructor for create WorkerPool
+func NewWorkerPool(queue QueueInterface, returnErr bool) *WorkerPool {
+	return &WorkerPool{
+		queue:              queue,
+		minWorkers:         2,
+		maxWorkers:         25,
+		minWorkingPercent:  50,
+		maxWorkingPercent:  99,
+		pollTaskTicker:     time.NewTicker(200 * time.Millisecond),
+		quit:               make(chan struct{}),
+		Errors:             make(chan error),
+		tasks:              make(chan TaskInterface),
+		workers:            make(map[*worker]struct{}),
+		scheduleTaskTicker: time.NewTicker(1 * time.Millisecond),
+		returnErr:          returnErr,
 	}
 }
 
-// WithScheduleInterval set duration for check workers and schedule
-func WithScheduleInterval(duration time.Duration) Option {
-	return func(w *WorkerPool) {
-		w.scheduleInterval = duration
-	}
+func (wp *WorkerPool) SetPollTaskTicker(ticker *time.Ticker) {
+	wp.Lock()
+	wp.pollTaskTicker.Stop()
+	wp.pollTaskTicker = ticker
+	wp.Unlock()
 }
 
-func WithErrors() Option {
-	return func(w *WorkerPool) {
-		w.returnErr = true
-	}
+func (wp *WorkerPool) SetScheduleTicker(ticker *time.Ticker) {
+	wp.Lock()
+	wp.scheduleTaskTicker.Stop()
+	wp.scheduleTaskTicker = ticker
+	wp.Unlock()
 }
 
 func (wp *WorkerPool) SetMinWorkers(count uint32) error {
@@ -120,33 +130,6 @@ func (wp *WorkerPool) setMaxWorkingPercent(per uint32) error {
 	return nil
 }
 
-// NewWorkerPool constructor for create WorkerPool
-func NewWorkerPool(queue QueueInterface, opts ...Option) (*WorkerPool, error) {
-	if queue == nil {
-		return nil, fmt.Errorf("queue can not be nil")
-	}
-
-	wp := WorkerPool{
-		queue:             queue,
-		minWorkers:        2,
-		maxWorkers:        25,
-		minWorkingPercent: 50,
-		maxWorkingPercent: 99,
-		pollTaskInterval:  200 * time.Millisecond,
-		quit:              make(chan struct{}),
-		Errors:            make(chan error),
-		tasks:             make(chan TaskInterface),
-		workers:           make(map[*worker]struct{}),
-		scheduleInterval:  time.Second * 1,
-	}
-
-	for _, opt := range opts {
-		opt(&wp)
-	}
-
-	return &wp, nil
-}
-
 func (wp *WorkerPool) addWorker() {
 	w := new(worker)
 	w.pool = wp
@@ -194,11 +177,13 @@ func (wp *WorkerPool) getStats() (current, inWork int) {
 
 // run worker pool
 func (wp *WorkerPool) Run() {
-	pollTicker := time.NewTicker(wp.pollTaskInterval)
-	defer pollTicker.Stop()
+	defer func() {
+		wp.pollTaskTicker.Stop()
+	}()
 
-	scheduleTicker := time.NewTicker(wp.scheduleInterval)
-	defer scheduleTicker.Stop()
+	defer func() {
+		wp.scheduleTaskTicker.Stop()
+	}()
 
 	for i := 0; i < int(wp.GetMinWorkers()); i++ {
 		wp.addWorker()
@@ -206,7 +191,7 @@ func (wp *WorkerPool) Run() {
 	go func() {
 		for {
 			select {
-			case <-scheduleTicker.C:
+			case <-wp.scheduleTaskTicker.C:
 				current, inWork := wp.getStats()
 				if current == 0 {
 					return
@@ -218,13 +203,11 @@ func (wp *WorkerPool) Run() {
 				if workingPercent > wp.GetMaxWorkingPercent() && uint32(current) < wp.maxWorkers {
 					wp.addWorker()
 				}
-			case <-pollTicker.C:
+			case <-wp.pollTaskTicker.C:
 				task := wp.queue.GetTask()
-				if task == nil {
-					continue
+				if task != nil {
+					wp.tasks <- task
 				}
-
-				wp.tasks <- task
 			}
 		}
 	}()

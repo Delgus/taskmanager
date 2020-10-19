@@ -30,7 +30,7 @@ func main() {
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 
 	// if need in log errors use option WithErrors and read from channel Errors
-	wp, _ := taskmanager.NewWorkerPool(q, taskmanager.WithErrors())
+	wp := taskmanager.NewWorkerPool(q, true)
 	go func() {
 		for err := range wp.Errors {
 			log.Println("err:", err)
