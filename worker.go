@@ -10,35 +10,34 @@ import (
 
 // WorkerPool of workers
 type WorkerPool struct {
-	queue            QueueInterface
-	minWorkers       uint32        // minimal count of workers
-	maxWorkers       uint32        // maximal count of workers
-	pollTaskInterval time.Duration // period for check task in queue
-	tasks            chan TaskInterface
-	workers          map[*worker]struct{}
-	quit             chan struct{}
-	returnErr        bool
-	Errors           chan error
+	queue             QueueInterface
+	minWorkers        uint32 // minimal count of workers
+	maxWorkers        uint32 // maximal count of workers
+	minWorkingPercent uint32
+	maxWorkingPercent uint32
+	pollTaskInterval  time.Duration // period for check task in queue
+	scheduleInterval  time.Duration
+	tasks             chan TaskInterface
+	workers           map[*worker]struct{}
+	quit              chan struct{}
+	returnErr         bool
+	Errors            chan error
 	sync.Mutex
 }
 
 type Option func(*WorkerPool)
 
+// WithPollTaskInterval set duration for polling tasks from queue
 func WithPollTaskInterval(duration time.Duration) Option {
 	return func(w *WorkerPool) {
 		w.pollTaskInterval = duration
 	}
 }
 
-func WithMinWorkers(count uint32) Option {
+// WithScheduleInterval set duration for check workers and schedule
+func WithScheduleInterval(duration time.Duration) Option {
 	return func(w *WorkerPool) {
-		w.minWorkers = count
-	}
-}
-
-func WithMaxWorkers(count uint32) Option {
-	return func(w *WorkerPool) {
-		w.maxWorkers = count
+		w.scheduleInterval = duration
 	}
 }
 
@@ -48,6 +47,79 @@ func WithErrors() Option {
 	}
 }
 
+func (wp *WorkerPool) SetMinWorkers(count uint32) error {
+	return wp.setMinWorkers(count)
+}
+
+func (wp *WorkerPool) GetMinWorkers() uint32 {
+	return atomic.LoadUint32(&wp.minWorkers)
+}
+
+func (wp *WorkerPool) setMinWorkers(count uint32) error {
+	if count < 2 {
+		return fmt.Errorf("minWorkers can not be < 2")
+	}
+	if wp.maxWorkers < count {
+		return fmt.Errorf("maxWorkers can not be < minWorkers")
+	}
+	atomic.StoreUint32(&wp.minWorkers, count)
+	return nil
+}
+
+func (wp *WorkerPool) SetMaxWorkers(count uint32) error {
+	return wp.setMaxWorkers(count)
+}
+
+func (wp *WorkerPool) GetMaxWorkers() uint32 {
+	return atomic.LoadUint32(&wp.maxWorkers)
+}
+
+func (wp *WorkerPool) setMaxWorkers(count uint32) error {
+	if count < wp.minWorkers {
+		return fmt.Errorf("maxWorkers can not be < minWorkers")
+	}
+	atomic.StoreUint32(&wp.maxWorkers, count)
+	return nil
+}
+
+func (wp *WorkerPool) SetMinWorkingPercent(per uint32) error {
+	return wp.setMinWorkingPercent(per)
+}
+
+func (wp *WorkerPool) GetMinWorkingPercent() uint32 {
+	return atomic.LoadUint32(&wp.minWorkingPercent)
+}
+
+func (wp *WorkerPool) setMinWorkingPercent(per uint32) error {
+	if per > 99 {
+		return fmt.Errorf("minWorkingPercent  can not be > 99")
+	}
+	if per > wp.maxWorkingPercent {
+		return fmt.Errorf("minWorkingPercent  can not be > maxWorkingPercent")
+	}
+	atomic.StoreUint32(&wp.minWorkingPercent, per)
+	return nil
+}
+
+func (wp *WorkerPool) SetMaxWorkingPercent(per uint32) error {
+	return wp.setMaxWorkingPercent(per)
+}
+
+func (wp *WorkerPool) GetMaxWorkingPercent() uint32 {
+	return atomic.LoadUint32(&wp.maxWorkingPercent)
+}
+
+func (wp *WorkerPool) setMaxWorkingPercent(per uint32) error {
+	if per > 100 {
+		return fmt.Errorf("maxWorkingPercent  can not be > 100")
+	}
+	if per < wp.minWorkingPercent {
+		return fmt.Errorf("maxWorkingPercent  can not be < minWorkingPercent")
+	}
+	atomic.StoreUint32(&wp.maxWorkingPercent, per)
+	return nil
+}
+
 // NewWorkerPool constructor for create WorkerPool
 func NewWorkerPool(queue QueueInterface, opts ...Option) (*WorkerPool, error) {
 	if queue == nil {
@@ -55,25 +127,21 @@ func NewWorkerPool(queue QueueInterface, opts ...Option) (*WorkerPool, error) {
 	}
 
 	wp := WorkerPool{
-		queue:            queue,
-		minWorkers:       10,
-		maxWorkers:       25,
-		pollTaskInterval: 200 * time.Millisecond,
-		quit:             make(chan struct{}),
-		Errors:           make(chan error),
-		tasks:            make(chan TaskInterface),
-		workers:          make(map[*worker]struct{}),
+		queue:             queue,
+		minWorkers:        2,
+		maxWorkers:        25,
+		minWorkingPercent: 50,
+		maxWorkingPercent: 99,
+		pollTaskInterval:  200 * time.Millisecond,
+		quit:              make(chan struct{}),
+		Errors:            make(chan error),
+		tasks:             make(chan TaskInterface),
+		workers:           make(map[*worker]struct{}),
+		scheduleInterval:  time.Second * 1,
 	}
 
 	for _, opt := range opts {
 		opt(&wp)
-	}
-
-	if wp.minWorkers < 2 {
-		return nil, fmt.Errorf("minWorkers can not be < 2")
-	}
-	if wp.maxWorkers < wp.minWorkers {
-		return nil, fmt.Errorf("maxWorkers can not be < minWorkers")
 	}
 
 	return &wp, nil
@@ -92,7 +160,7 @@ func (wp *WorkerPool) removeWorker() {
 	wp.Lock()
 	defer wp.Unlock()
 	for w := range wp.workers {
-		if w.getState() != StateInWork {
+		if !w.inWork() {
 			delete(wp.workers, w)
 			break
 		}
@@ -103,7 +171,7 @@ func (wp *WorkerPool) removeAllWorkers() {
 	wp.Lock()
 	for len(wp.workers) != 0 {
 		for w := range wp.workers {
-			if w.getState() != StateInWork {
+			if !w.inWork() {
 				delete(wp.workers, w)
 			}
 		}
@@ -111,13 +179,13 @@ func (wp *WorkerPool) removeAllWorkers() {
 	wp.Unlock()
 }
 
-func (wp *WorkerPool) getStatistic() (current, inWork int) {
+func (wp *WorkerPool) getStats() (current, inWork int) {
 	wp.Lock()
 	defer wp.Unlock()
 	current = len(wp.workers)
 	inWork = 0
 	for w := range wp.workers {
-		if w.getState() == StateInWork {
+		if w.inWork() {
 			inWork++
 		}
 	}
@@ -126,30 +194,38 @@ func (wp *WorkerPool) getStatistic() (current, inWork int) {
 
 // run worker pool
 func (wp *WorkerPool) Run() {
-	ticker := time.NewTicker(wp.pollTaskInterval)
-	defer ticker.Stop()
-	for i := 0; i < int(wp.minWorkers); i++ {
+	pollTicker := time.NewTicker(wp.pollTaskInterval)
+	defer pollTicker.Stop()
+
+	scheduleTicker := time.NewTicker(wp.scheduleInterval)
+	defer scheduleTicker.Stop()
+
+	for i := 0; i < int(wp.GetMinWorkers()); i++ {
 		wp.addWorker()
 	}
 	go func() {
-		for range ticker.C {
-			current, inWork := wp.getStatistic()
-			if current < 1 {
-				continue
-			}
-			task := wp.queue.GetTask()
-			if task == nil {
-				// if < 50% do nothing - remove worker
-				if inWork/current*100 < 50 && uint32(current) > wp.minWorkers {
+		for {
+			select {
+			case <-scheduleTicker.C:
+				current, inWork := wp.getStats()
+				if current == 0 {
+					return
+				}
+				workingPercent := uint32(inWork * 100 / current)
+				if workingPercent < wp.GetMinWorkingPercent() && uint32(current) > wp.minWorkers {
 					wp.removeWorker()
 				}
-				continue
+				if workingPercent > wp.GetMaxWorkingPercent() && uint32(current) < wp.maxWorkers {
+					wp.addWorker()
+				}
+			case <-pollTicker.C:
+				task := wp.queue.GetTask()
+				if task == nil {
+					continue
+				}
+
+				wp.tasks <- task
 			}
-			// if all workers in work - add worker
-			if inWork == current && uint32(current) < wp.maxWorkers {
-				wp.addWorker()
-			}
-			wp.tasks <- task
 		}
 	}()
 	<-wp.quit
@@ -188,8 +264,8 @@ func (w *worker) setState(state int32) {
 	atomic.StoreInt32(&w.state, state)
 }
 
-func (w *worker) getState() int32 {
-	return atomic.LoadInt32(&w.state)
+func (w *worker) inWork() bool {
+	return atomic.LoadInt32(&w.state) == StateInWork
 }
 
 func (w *worker) run() {

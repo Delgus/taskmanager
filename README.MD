@@ -19,12 +19,6 @@ Tasks can have different priority levels:
  - middle
  - high
  - highest
-
-Tasks have events:
-
- - BeforeExecEvent
- - AfterExecEvent
- - FailedEvent
  
 #### Create task with priority
 
@@ -36,31 +30,25 @@ job := func() error {
 task := taskmanager.NewTask(taskmanager.HighestPriority, job)
 ```
 
-#### add events to tasks
-```go
-task.OnEvent(taskmanager.BeforeExecEvent, func() {
-	fmt.Println("i before execution!")
-})
-```
-
 #### Create queue
 ```go
 queue := taskmanager.NewQueue()
 ```
 
-#### add task to queue
+#### Add task to queue
 ```go
 queue.AddTask(task)
 ```
 
-#### get task from queue
+#### Get task from queue
+Queue.GetTask return task or nil if queue is empty.
 ```go
 queue.GetTask()
 ```
 
-#### worker pool
+#### Create worker pool
 ```go
-workerPool := taskmanager.NewWorkerPool(queue, 10, time.Millisecond*50, logger)
+workerPool, err := taskmanager.NewWorkerPool(queue)
 ```
 
 

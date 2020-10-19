@@ -19,7 +19,7 @@ func TestWorkerPool(t *testing.T) {
 		time.Sleep(time.Second)
 		return nil
 	}
-	var countTasks = 10 // == default count workers
+	var countTasks = 10 // ==  count workers
 
 	for i := 0; i < countTasks; i++ {
 		q.AddTask(NewTask(HighestPriority, calcTask))
@@ -27,6 +27,9 @@ func TestWorkerPool(t *testing.T) {
 
 	worker, err := NewWorkerPool(q, WithPollTaskInterval(20*time.Millisecond))
 	if err != nil {
+		t.Errorf("unexpected err: %v", err)
+	}
+	if err := worker.SetMinWorkers(10);err != nil {
 		t.Errorf("unexpected err: %v", err)
 	}
 
@@ -142,8 +145,7 @@ func TestWorkerOptions(t *testing.T) {
 	workerPool, err := NewWorkerPool(
 		NewQueue(),
 		WithPollTaskInterval(300*time.Millisecond),
-		WithMinWorkers(20),
-		WithMaxWorkers(40),
+		WithScheduleInterval(2*time.Second),
 		WithErrors(),
 	)
 	if err != nil {
@@ -152,43 +154,60 @@ func TestWorkerOptions(t *testing.T) {
 	if workerPool.pollTaskInterval != 300*time.Millisecond {
 		t.Errorf("unexpected pollTaskInterval - %d", workerPool.pollTaskInterval)
 	}
-	if workerPool.minWorkers != 20 {
-		t.Errorf("unexpected minWorkers - %d", workerPool.minWorkers)
-	}
 	if workerPool.returnErr != true {
 		t.Errorf("unexpected returnErr - %v", workerPool.returnErr)
 	}
-	if workerPool.maxWorkers != 40 {
-		t.Errorf("unexpected maxWorkers - %d", workerPool.maxWorkers)
+	if workerPool.scheduleInterval != 2*time.Second {
+		t.Errorf("unexpected scheduleInterval - %d", workerPool.scheduleInterval)
 	}
-
 	_, err = NewWorkerPool(nil)
 	if err == nil {
 		t.Errorf("expected err. queue nil!")
 	}
+}
 
-	_, err = NewWorkerPool(NewQueue(), WithMaxWorkers(3), WithMinWorkers(5))
-	if err == nil {
-		t.Errorf("expected err. minWorkers > maxWorkers")
+func TestSetOptions(t *testing.T) {
+	w, _ := NewWorkerPool(NewQueue())
+	go w.Run()
+
+	_ = w.SetMinWorkers(15)
+	if w.GetMinWorkers() != 15 {
+		t.Errorf("unexpected minWorkers - %d", w.minWorkers)
 	}
 
-	_, err = NewWorkerPool(NewQueue(), WithMinWorkers(1))
-	if err == nil {
-		t.Errorf("expected err. minWorkers < 2 ")
+	_ = w.SetMaxWorkers(100)
+	if w.GetMaxWorkers() != 100 {
+		t.Errorf("unexpected maxWorkers - %d", w.minWorkers)
+	}
+
+	_ = w.SetMinWorkingPercent(33)
+	if w.GetMinWorkingPercent() != 33 {
+		t.Errorf("unexpected minWorkingPercent- %d", w.minWorkingPercent)
+	}
+
+	_ = w.SetMaxWorkingPercent(70)
+	if w.GetMaxWorkingPercent() != 70 {
+		t.Errorf("unexpected minWorkers - %d", w.maxWorkingPercent)
 	}
 }
 
 func TestAddAndRemoveWorkers(t *testing.T) {
 	q := NewQueue()
-	workerPool, err := NewWorkerPool(
+	w, err := NewWorkerPool(
 		q,
 		WithPollTaskInterval(10*time.Millisecond),
-		WithMinWorkers(2),
-		WithMaxWorkers(5),
+		WithScheduleInterval(5*time.Millisecond), // for fastest tests
 	)
 	if err != nil {
-		t.Errorf("unexpected err: %v", err)
+		t.Errorf("unexpected error: %v", err)
 	}
+	if err := w.SetMinWorkers(2); err != nil {
+		t.Errorf("unexpected error %v", err)
+	}
+	if err := w.SetMaxWorkers(5); err != nil {
+		t.Errorf("unexpected error %v", err)
+	}
+
 	taskCreate := func(ms time.Duration) *Task {
 		return NewTask(HighestPriority, func() error {
 			time.Sleep(ms)
@@ -201,26 +220,208 @@ func TestAddAndRemoveWorkers(t *testing.T) {
 		testTime -= 10 * time.Millisecond
 	}
 
-	go workerPool.Run()
+	go w.Run()
 	// wait 30+ ms (add 3 workers)
 	// and wait more 30 ms
 	time.Sleep(time.Millisecond * 61)
 
-	workerPool.Lock()
-	if len(workerPool.workers) != 5 {
-		t.Errorf(`unexpected count of current workers - %d `, len(workerPool.workers))
+	current, _ := w.getStats()
+	if current != 5 {
+		t.Errorf(`unexpected count of current workers - %d `, current)
 	}
-	workerPool.Unlock()
 
 	// wait minimize count
 	time.Sleep(time.Millisecond * 100)
-	workerPool.Lock()
-	if len(workerPool.workers) != 2 {
-		t.Errorf(`unexpected count of current workers - %d `, len(workerPool.workers))
-	}
-	workerPool.Unlock()
 
-	if err := workerPool.Shutdown(context.Background()); err != nil {
+	current, _ = w.getStats()
+	if current != 2 {
+		t.Errorf(`unexpected count of current workers - %d `, current)
+	}
+
+	if err := w.Shutdown(context.Background()); err != nil {
 		t.Errorf(`unexpected shutdown error - %v`, err)
+	}
+}
+
+func TestWorkerPool_setMaxWorkers(t *testing.T) {
+	wp1, _ := NewWorkerPool(NewQueue())
+	wp1.minWorkers = 10
+	wp2, _ := NewWorkerPool(NewQueue())
+
+	type args struct {
+		count uint32
+	}
+	tests := []struct {
+		name    string
+		w       *WorkerPool
+		args    args
+		wantErr bool
+	}{
+		{
+			name: " < min workers",
+			w:    wp1,
+			args: args{
+				count: 9,
+			},
+			wantErr: true,
+		},
+		{
+			name: "good",
+			w:    wp2,
+			args: args{
+				count: 30,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.w.setMaxWorkers(tt.args.count); (err != nil) != tt.wantErr {
+				t.Errorf("setMaxWorkers() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestWorkerPool_setMinWorkers(t *testing.T) {
+	wp1, _ := NewWorkerPool(NewQueue())
+	wp2, _ := NewWorkerPool(NewQueue())
+	type args struct {
+		count uint32
+	}
+	tests := []struct {
+		name    string
+		w       *WorkerPool
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "<2",
+			w:    wp1,
+			args: args{
+				count: 1,
+			},
+			wantErr: true,
+		},
+		{
+			name: ">default max 25",
+			w:    wp2,
+			args: args{
+				count: 26,
+			},
+			wantErr: true,
+		},
+		{
+			name: "good",
+			w:    wp1,
+			args: args{
+				count: 5,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.w.setMinWorkers(tt.args.count); (err != nil) != tt.wantErr {
+				t.Errorf("setMinWorkers() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestWorkerPool_setMinWorkingPercent(t *testing.T) {
+	wp1, _ := NewWorkerPool(NewQueue())
+	wp2, _ := NewWorkerPool(NewQueue())
+	wp2.maxWorkingPercent = 70
+	type args struct {
+		per uint32
+	}
+	tests := []struct {
+		name    string
+		w       *WorkerPool
+		args    args
+		wantErr bool
+	}{
+		{
+			name: " > 100",
+			w:    wp1,
+			args: args{
+				per: 101,
+			},
+			wantErr: true,
+		},
+		{
+			name: " > max percent",
+			w:    wp2,
+			args: args{
+				per: 71,
+			},
+			wantErr: true,
+		},
+		{
+			name: "good",
+			w:    wp1,
+			args: args{
+				per: 45,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.w.setMinWorkingPercent(tt.args.per); (err != nil) != tt.wantErr {
+				t.Errorf("setMinWorkingPercent() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestWorkerPool_SetMaxWorkingPercent(t *testing.T) {
+	wp1, _ := NewWorkerPool(NewQueue())
+	wp2, _ := NewWorkerPool(NewQueue())
+	type args struct {
+		per uint32
+	}
+	tests := []struct {
+		name    string
+		w       *WorkerPool
+		args    args
+		wantErr bool
+	}{
+		{
+			name: " > 100",
+			w:    wp1,
+			args: args{
+				per: 101,
+			},
+			wantErr: true,
+		},
+		{
+			name: " < min percent",
+			w:    wp2,
+			args: args{
+				per: 49,
+			},
+			wantErr: true,
+		},
+		{
+			name: "good",
+			w:    wp1,
+			args: args{
+				per: 90,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.w.setMaxWorkingPercent(tt.args.per); (err != nil) != tt.wantErr {
+				t.Errorf("setMaxWorkingPercent() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }

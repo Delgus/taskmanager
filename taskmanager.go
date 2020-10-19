@@ -15,37 +15,19 @@ type executor interface {
 	Exec() error
 }
 
-type priorityHaving interface {
+type havingPriority interface {
 	Priority() Priority
 }
 
-type attempts interface {
+type attempting interface {
 	Attempts() uint32
-}
-
-// Event - type for event name
-type Event string
-
-// EventHandler - handle for events
-type EventHandler func()
-
-const (
-	BeforeExecEvent Event = "before_exec"
-	AfterExecEvent  Event = "after_exec"
-	FailedEvent     Event = "failed"
-)
-
-type eventEmitter interface {
-	OnEvent(event Event, handler EventHandler)
-	EmitEvent(event Event)
 }
 
 // Task interface
 type TaskInterface interface {
 	executor
-	priorityHaving
-	eventEmitter
-	attempts
+	havingPriority
+	attempting
 }
 
 // Queue interface
