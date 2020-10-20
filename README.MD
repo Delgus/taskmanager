@@ -48,7 +48,16 @@ queue.GetTask()
 
 #### Create worker pool
 ```go
-workerPool, err := taskmanager.NewWorkerPool(queue)
+// without getting errors from tasks
+wp1 := taskmanager.NewWorkerPool(queue, false)
+
+// get errors from task
+wp2 := taskmanager.NewWorkerPool(q, true)
+go func() {
+	for err := range wp.Errors {
+		log.Println("err:", err)
+	}
+}()
 ```
 
 
