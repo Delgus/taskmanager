@@ -38,7 +38,7 @@ func NewWorkerPool(queue QueueInterface, returnErr bool) *WorkerPool {
 		Errors:             make(chan error),
 		tasks:              make(chan TaskInterface),
 		workers:            make(map[*worker]struct{}),
-		scheduleTaskTicker: time.NewTicker(1 * time.Millisecond),
+		scheduleTaskTicker: time.NewTicker(1 * time.Second),
 		returnErr:          returnErr,
 	}
 }
@@ -165,14 +165,32 @@ func (wp *WorkerPool) removeAllWorkers() {
 func (wp *WorkerPool) getStats() (current, inWork int) {
 	wp.Lock()
 	defer wp.Unlock()
-	current = len(wp.workers)
-	inWork = 0
+	return wp.getCountWorkers(), wp.getCountWorkingWorkers()
+}
+
+func (wp *WorkerPool) getCountWorkers() int {
+	return len(wp.workers)
+}
+
+func (wp *WorkerPool) getCountWorkingWorkers() (inWork int) {
 	for w := range wp.workers {
 		if w.inWork() {
 			inWork++
 		}
 	}
 	return
+}
+
+func (wp *WorkerPool) GetCountWorkers() int {
+	wp.Lock()
+	defer wp.Unlock()
+	return len(wp.workers)
+}
+
+func (wp *WorkerPool) GetCountWorkingWorkers() int {
+	wp.Lock()
+	defer wp.Unlock()
+	return wp.getCountWorkingWorkers()
 }
 
 // run worker pool

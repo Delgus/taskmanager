@@ -399,3 +399,28 @@ func TestWorkerPool_SetMaxWorkingPercent(t *testing.T) {
 		})
 	}
 }
+
+func TestGetStats(t *testing.T) {
+	q := NewQueue()
+	wp := NewWorkerPool(q, false)
+	_ = wp.SetMinWorkers(10)
+	wp.SetPollTaskTicker(time.NewTicker(50 * time.Millisecond))
+	go wp.Run()
+	q.AddTask(NewTask(HighestPriority, func() error {
+		time.Sleep(1000 * time.Millisecond)
+		return nil
+	}))
+
+	// wait getting task from queue
+	time.Sleep(100 * time.Millisecond)
+
+	current := wp.GetCountWorkers()
+	if current != 10 {
+		t.Errorf(`unexpected count of current workers - %d `, current)
+	}
+
+	inWork := wp.GetCountWorkingWorkers()
+	if inWork != 1 {
+		t.Errorf(`unexpected count of working workers - %d `, inWork)
+	}
+}
