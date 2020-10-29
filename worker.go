@@ -131,7 +131,7 @@ func (wp *WorkerPool) setMaxWorkingPercent(per uint32) error {
 }
 
 func (wp *WorkerPool) addWorker() {
-	w := new(worker)
+	w := newWorker()
 	w.pool = wp
 	wp.Lock()
 	wp.workers[w] = struct{}{}
@@ -144,6 +144,7 @@ func (wp *WorkerPool) removeWorker() {
 	defer wp.Unlock()
 	for w := range wp.workers {
 		if !w.inWork() {
+			w.close()
 			delete(wp.workers, w)
 			break
 		}
@@ -155,6 +156,7 @@ func (wp *WorkerPool) removeAllWorkers() {
 	for len(wp.workers) != 0 {
 		for w := range wp.workers {
 			if !w.inWork() {
+				w.close()
 				delete(wp.workers, w)
 			}
 		}
@@ -252,8 +254,15 @@ func (wp *WorkerPool) Shutdown(ctx context.Context) error {
 }
 
 type worker struct {
-	state int32
-	pool  *WorkerPool
+	state   int32
+	pool    *WorkerPool
+	closeCh chan struct{}
+}
+
+func newWorker() *worker {
+	return &worker{
+		closeCh: make(chan struct{}),
+	}
 }
 
 const (
@@ -269,18 +278,28 @@ func (w *worker) inWork() bool {
 	return atomic.LoadInt32(&w.state) == StateInWork
 }
 
+func (w *worker) close() {
+	w.closeCh <- struct{}{}
+}
+
 func (w *worker) run() {
 	for {
-		task := <-w.pool.tasks
-		w.setState(StateInWork)
-		if err := task.Exec(); err != nil {
-			if w.pool.returnErr {
-				w.pool.Errors <- err
+		select {
+		case task := <-w.pool.tasks:
+			w.setState(StateInWork)
+			if err := task.Exec(); err != nil {
+				if w.pool.returnErr {
+					w.pool.Errors <- err
+				}
+				if task.Attempts() != 0 {
+					w.pool.tasks <- task
+				}
 			}
-			if task.Attempts() != 0 {
-				w.pool.tasks <- task
-			}
+			w.setState(StateListen)
+		case <-w.closeCh:
+			w.pool = nil
+			close(w.closeCh)
+			return
 		}
-		w.setState(StateListen)
 	}
 }
