@@ -42,3 +42,20 @@ func TestTask_Exec(t1 *testing.T) {
 		})
 	}
 }
+
+func TestTaskPanic(t *testing.T) {
+	task := NewTask(HighestPriority, func() error {
+		if true {
+			panic("oops")
+		}
+		return nil
+	})
+	task.SetAttempts(5)
+	if err := task.Exec(); err == nil {
+		t.Error("expected error from panic but get nil")
+	}
+	attempts := task.Attempts()
+	if attempts != 4 {
+		t.Errorf("unexpected attempts count: %d expect %d", attempts, 4)
+	}
+}

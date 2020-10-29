@@ -1,6 +1,7 @@
 package taskmanager
 
 import (
+	"fmt"
 	"sync/atomic"
 )
 
@@ -38,7 +39,12 @@ func (t *Task) Attempts() uint32 {
 	return atomic.LoadUint32(&t.attempts)
 }
 
-func (t *Task) Exec() error {
+func (t *Task) Exec() (err error) {
 	atomic.StoreUint32(&t.attempts, atomic.LoadUint32(&t.attempts)-1)
+	defer func() {
+		if e := recover(); e != nil {
+			err = fmt.Errorf("panic: %s", e)
+		}
+	}()
 	return t.handler()
 }
