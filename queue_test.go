@@ -135,53 +135,25 @@ func TestRaceConditionForMemoryQueue(t *testing.T) {
 
 func BenchmarkMemoryQueue_AddTask(b *testing.B) {
 	queue := NewQueue()
+	task := NewTask(LowestPriority, func() error {
+		return nil
+	})
 	for n := 0; n < b.N; n++ {
-		queue.AddTask(NewTask(HighPriority, func() error {
-			return nil
-		}))
-		queue.AddTask(NewTask(LowPriority, func() error {
-			return nil
-		}))
-		queue.AddTask(NewTask(MiddlePriority, func() error {
-			return nil
-		}))
-		queue.AddTask(NewTask(LowestPriority, func() error {
-			return nil
-		}))
-		queue.AddTask(NewTask(HighestPriority, func() error {
-			return nil
-		}))
+		queue.AddTask(task)
 	}
 }
 
 func BenchmarkSliceQueue_GetTask(b *testing.B) {
 	queue := NewQueue()
+	task := NewTask(LowestPriority, func() error {
+		return nil
+	})
+	for i := 0; i < 1000; i++ {
+		queue.AddTask(task)
+	}
+	b.ResetTimer()
+	b.StartTimer()
 	for n := 0; n < b.N; n++ {
-		b.StopTimer()
-		for i := 0; i < 200; i++ {
-			queue.AddTask(NewTask(HighPriority, func() error {
-				return nil
-			}))
-			queue.AddTask(NewTask(LowPriority, func() error {
-				return nil
-			}))
-			queue.AddTask(NewTask(MiddlePriority, func() error {
-				return nil
-			}))
-			queue.AddTask(NewTask(LowestPriority, func() error {
-				return nil
-			}))
-			queue.AddTask(NewTask(HighestPriority, func() error {
-				return nil
-			}))
-		}
-		b.StartTimer()
-		for i := 0; i < 200; i++ {
-			queue.GetTask()
-			queue.GetTask()
-			queue.GetTask()
-			queue.GetTask()
-			queue.GetTask()
-		}
+		queue.GetTask()
 	}
 }

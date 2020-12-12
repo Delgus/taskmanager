@@ -4,11 +4,11 @@ package taskmanager
 type Priority uint8
 
 const (
-	HighestPriority Priority = 0
-	HighPriority    Priority = 1
-	MiddlePriority  Priority = 2
-	LowPriority     Priority = 3
-	LowestPriority  Priority = 4
+	HighestPriority Priority = iota
+	HighPriority
+	MiddlePriority
+	LowPriority
+	LowestPriority
 )
 
 type executor interface {

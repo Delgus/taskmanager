@@ -8,7 +8,7 @@
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FDelgus%2Ftaskmanager.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FDelgus%2Ftaskmanager?ref=badge_shield)
 
 
-### TASK MANAGER
+# TASK MANAGER
 
 This library implemented a system of task queues (library).
 TaskManager should resolve tasks, tasks can be of various types.
@@ -20,33 +20,26 @@ Tasks can have different priority levels:
  - high
  - highest
  
-#### Create task with priority
+### Create task with priority
 
 ```go
-job := func() error {
+task := taskmanager.NewTask(taskmanager.HighestPriority, func() error {
 	fmt.Println("doing work!")
 	return nil
-}
-task := taskmanager.NewTask(taskmanager.HighestPriority, job)
+})
 ```
 
-#### Create queue
+### Create queue
 ```go
 queue := taskmanager.NewQueue()
 ```
 
-#### Add task to queue
+### Add task to queue
 ```go
 queue.AddTask(task)
 ```
 
-#### Get task from queue
-Queue.GetTask return task or nil if queue is empty.
-```go
-queue.GetTask()
-```
-
-#### Create worker pool
+### Create worker pool
 ```go
 // without getting errors from tasks
 wp1 := taskmanager.NewWorkerPool(queue, false)
@@ -60,6 +53,36 @@ go func() {
 }()
 ```
 
+### Auto-Scale Worker Pool Options
+
+##### SetPollTaskTicker(ticker *time.Ticker)
+
+Set duration for polling tasks. 
+default - 200ms
+
+##### SetScheduleTicker(ticker *time.Ticker) 
+
+Set duration for check count of workers for adding new or removing.
+default - 1s
+
+##### SetMinWorkers(count uint32)
+
+Set min count running workers in pool.
+default - 2
+
+##### SetMaxWorkers(count uint32) 
+
+Set max count running workers in pool
+default - 25
+
+##### SetMinWorkingPercent(per uint32) 
+
+Set min percent running workers. default - 50
+Example, if 4/10 workers running that 40% < 50% and one of workers been remove from pool
+
+##### SetMaxWorkingPercent(per uint32)
+
+Set max percent running workers. default - 99
 
 
 ### License  

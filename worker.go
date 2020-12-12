@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+const (
+	validMinWorkers        = 2
+	validMaxPercentWorkers = 100
+)
+
 // WorkerPool of workers
 type WorkerPool struct {
 	queue              QueueInterface
@@ -27,22 +32,26 @@ type WorkerPool struct {
 
 // NewWorkerPool constructor for create WorkerPool
 func NewWorkerPool(queue QueueInterface, returnErr bool) *WorkerPool {
+	// default values
+	var minWorkers, maxWorkers, minPercent, maxPercent uint32 = 2, 25, 50, 99
+	var pollDuration, scheduleDuration = 200 * time.Millisecond, 1 * time.Second
 	return &WorkerPool{
 		queue:              queue,
-		minWorkers:         2,
-		maxWorkers:         25,
-		minWorkingPercent:  50,
-		maxWorkingPercent:  99,
-		pollTaskTicker:     time.NewTicker(200 * time.Millisecond),
+		minWorkers:         minWorkers,
+		maxWorkers:         maxWorkers,
+		minWorkingPercent:  minPercent,
+		maxWorkingPercent:  maxPercent,
+		pollTaskTicker:     time.NewTicker(pollDuration),
 		quit:               make(chan struct{}),
 		Errors:             make(chan error),
 		tasks:              make(chan TaskInterface),
 		workers:            make(map[*worker]struct{}),
-		scheduleTaskTicker: time.NewTicker(1 * time.Second),
+		scheduleTaskTicker: time.NewTicker(scheduleDuration),
 		returnErr:          returnErr,
 	}
 }
 
+// Set duration for polling tasks.
 func (wp *WorkerPool) SetPollTaskTicker(ticker *time.Ticker) {
 	wp.Lock()
 	wp.pollTaskTicker.Stop()
@@ -50,6 +59,7 @@ func (wp *WorkerPool) SetPollTaskTicker(ticker *time.Ticker) {
 	wp.Unlock()
 }
 
+// Set duration for check count of workers for adding new or removing
 func (wp *WorkerPool) SetScheduleTicker(ticker *time.Ticker) {
 	wp.Lock()
 	wp.scheduleTaskTicker.Stop()
@@ -57,6 +67,7 @@ func (wp *WorkerPool) SetScheduleTicker(ticker *time.Ticker) {
 	wp.Unlock()
 }
 
+// Set min count running workers in pool
 func (wp *WorkerPool) SetMinWorkers(count uint32) error {
 	return wp.setMinWorkers(count)
 }
@@ -66,7 +77,7 @@ func (wp *WorkerPool) GetMinWorkers() uint32 {
 }
 
 func (wp *WorkerPool) setMinWorkers(count uint32) error {
-	if count < 2 {
+	if count < validMinWorkers {
 		return fmt.Errorf("minWorkers can not be < 2")
 	}
 	if wp.maxWorkers < count {
@@ -76,6 +87,7 @@ func (wp *WorkerPool) setMinWorkers(count uint32) error {
 	return nil
 }
 
+// Set max count running workers in pool
 func (wp *WorkerPool) SetMaxWorkers(count uint32) error {
 	return wp.setMaxWorkers(count)
 }
@@ -92,6 +104,7 @@ func (wp *WorkerPool) setMaxWorkers(count uint32) error {
 	return nil
 }
 
+// Set min percent running workers
 func (wp *WorkerPool) SetMinWorkingPercent(per uint32) error {
 	return wp.setMinWorkingPercent(per)
 }
@@ -101,7 +114,7 @@ func (wp *WorkerPool) GetMinWorkingPercent() uint32 {
 }
 
 func (wp *WorkerPool) setMinWorkingPercent(per uint32) error {
-	if per > 99 {
+	if per > validMaxPercentWorkers {
 		return fmt.Errorf("minWorkingPercent  can not be > 99")
 	}
 	if per > wp.maxWorkingPercent {
@@ -111,6 +124,7 @@ func (wp *WorkerPool) setMinWorkingPercent(per uint32) error {
 	return nil
 }
 
+// Set max percent running workers
 func (wp *WorkerPool) SetMaxWorkingPercent(per uint32) error {
 	return wp.setMaxWorkingPercent(per)
 }
@@ -120,7 +134,7 @@ func (wp *WorkerPool) GetMaxWorkingPercent() uint32 {
 }
 
 func (wp *WorkerPool) setMaxWorkingPercent(per uint32) error {
-	if per > 100 {
+	if per > validMaxPercentWorkers {
 		return fmt.Errorf("maxWorkingPercent  can not be > 100")
 	}
 	if per < wp.minWorkingPercent {
@@ -266,8 +280,8 @@ func newWorker() *worker {
 }
 
 const (
-	StateListen int32 = 0
-	StateInWork int32 = 1
+	StateListen int32 = iota
+	StateInWork
 )
 
 func (w *worker) setState(state int32) {
