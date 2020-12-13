@@ -54,14 +54,14 @@ go func() {
 
 ### Auto-Scale Worker Pool Options
 
-##### SetPollTaskTicker(ticker *time.Ticker)
+##### SetPollTaskDuration(duration time.Duration)
 
 Set duration for polling tasks. 
 default - 200ms
 
-##### SetScheduleTicker(ticker *time.Ticker) 
+##### SetGCDuration(duration time.Duration) 
 
-Set duration for check count of workers for adding new or removing.
+Set duration for check unused workers for removing.
 default - 1s
 
 ##### SetMinWorkers(count uint32)
@@ -73,16 +73,6 @@ default - 2
 
 Set max count running workers in pool
 default - 25
-
-##### SetMinWorkingPercent(per uint32) 
-
-Set min percent running workers. default - 50
-Example, if 4/10 workers running that 40% < 50% and one of workers been remove from pool
-
-##### SetMaxWorkingPercent(per uint32)
-
-Set max percent running workers. default - 99
-
 
 ### License  
 

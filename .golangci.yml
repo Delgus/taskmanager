@@ -1,19 +1,12 @@
 linters-settings:
-  golint:
-    min-confidence: 0
-  gocyclo:
-    min-complexity: 15
-  maligned:
-    suggest-new: true
   dupl:
     threshold: 100
+  funlen:
+    lines: 100
+    statements: 50
   goconst:
     min-len: 2
     min-occurrences: 2
-  misspell:
-    locale: US
-  lll:
-    line-length: 140
   gocritic:
     enabled-tags:
       - diagnostic
@@ -21,17 +14,26 @@ linters-settings:
       - opinionated
       - performance
       - style
-  funlen:
-    lines: 100
-    statements: 50
-
+  gocyclo:
+    min-complexity: 15
+  golint:
+    min-confidence: 0
+  lll:
+    line-length: 140
+  maligned:
+    suggest-new: true
+  misspell:
+    locale: US
 
 linters:
+  # please, do not use `enable-all`: it's deprecated and will be removed soon.
+  # inverted configuration with `enable-all` and `disable` is not scalable during updates of golangci-lint
+  disable-all: true
   enable:
+    - bodyclose
     - deadcode
     - depguard
     - dogsled
-    # - dupl
     - errcheck
     - funlen
     - gochecknoinits
@@ -41,6 +43,8 @@ linters:
     - gofmt
     - goimports
     - golint
+    - gomnd
+    - goprintffuncname
     - gosec
     - gosimple
     - govet
@@ -49,6 +53,8 @@ linters:
     - lll
     - misspell
     - nakedret
+    - nolintlint
+    - rowserrcheck
     - scopelint
     - staticcheck
     - structcheck
@@ -59,3 +65,6 @@ linters:
     - unused
     - varcheck
     - whitespace
+    - gochecknoglobals
+    - gocognit
+    - prealloc
